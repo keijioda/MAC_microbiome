@@ -320,7 +320,8 @@ df %>%
   geom_histogram(aes(y = after_stat(density)), bins = 20) +
   geom_density(color = "cornflowerblue", linewidth = 1, adjust = 2) +
   labs(x = NULL, y = "Density") +
-  facet_wrap(~ var, scales = "free")
+  facet_wrap(~ var, scales = "free") +
+  theme_bw()
 
 
 # Histogram on delta
@@ -357,6 +358,7 @@ df %>%
   scale_x_discrete(breaks = 1:2, expand = expansion(add = 0.1)) +
   labs(x = "Phase", y = NULL) +
   facet_grid(var ~ group_lab, scales = "free", switch = "y", axes = "all_x") +
+  theme_bw() +
   theme(
     legend.position = "none",
     strip.placement = "outside",
@@ -403,10 +405,12 @@ df_delta %>%
   labs(
     x = "Participant ID",
     y = "Difference: Macademia - Control", 
-    fill = NULL
+    fill = "Treatment sequence"
   ) +
+  theme_bw() +
   theme(legend.position = "bottom")
 
+# Descriptive statistics on delta
 df_delta %>% 
   select(delta_chol, delta_ldl, delta_hdl, delta_apob) %>% 
   tbl_summary(
@@ -423,6 +427,45 @@ df_delta %>%
   ) %>% 
   bold_labels() %>% 
   modify_header(label = "**Outcome**")
+
+# Build mac/control/delta values in one wide frame
+delta_full <- df %>% 
+  filter(treatment %in% c("mac", "control")) %>% 
+  select(id, treatment, chol, ldl, hdl, apob) %>% 
+  pivot_wider(
+    id_cols     = id,
+    names_from  = treatment,
+    values_from = c(chol, ldl, hdl, apob)
+  ) %>% 
+  mutate(
+    chol_delta = chol_mac - chol_control,
+    ldl_delta  = ldl_mac  - ldl_control,
+    hdl_delta  = hdl_mac  - hdl_control,
+    apob_delta = apob_mac - apob_control
+  )
+
+# Reshape to long (outcome x condition), summarize, then pivot back to wide
+summary_tbl <- delta_full %>% 
+  pivot_longer(
+    cols         = -id,
+    names_to     = c("outcome", "condition"),
+    names_pattern = "(chol|ldl|hdl|apob)_(mac|control|delta)",
+    values_to    = "value"
+  ) %>% 
+  group_by(outcome, condition) %>% 
+  summarise(mean_sd = sprintf("%.1f (%.1f)", mean(value), sd(value)), .groups = "drop") %>% 
+  pivot_wider(names_from = condition, values_from = mean_sd) %>% 
+  mutate(
+    outcome = factor(outcome, 
+                     levels = c("chol", "ldl", "hdl", "apob"),
+                     labels = c("Total cholesterol (mg/dL)", "LDL cholesterol (mg/dL)", 
+                                "HDL cholesterol (mg/dL)", "ApoB (mg/dL)"))
+  ) %>% 
+  arrange(outcome) %>% 
+  select(Outcome = outcome, Mac = mac, Control = control, `Δ (Mac-Control)` = delta)
+
+summary_tbl %>% knitr::kable(align = c("l", "c", "c", "c"))
+
 
 # Microbiome variables ----------------------------------------------------
 
@@ -468,3 +511,4 @@ zero_check %>%
 # When Roseburia_2 = 0, it is always in the control phase
 zero_check %>% 
   filter(xor(phase_1 == 0, phase_2 == 0))
+

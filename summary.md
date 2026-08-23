@@ -451,88 +451,12 @@ categorical variables. P-values from Welch’s two-sample t-test
 - Mean (SD) within-person change (mac − control) for total cholesterol,
   LDL, HDL, and ApoB
 
-<table>
-
-<thead>
-
-<tr>
-
-<th style="text-align:left;">
-
-Outcome
-</th>
-
-<th style="text-align:center;">
-
-Mean (SD)
-</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-
-<td style="text-align:left;">
-
-<span style="font-weight: bold;">Δ Total cholesterol
-(mac-control)</span>
-</td>
-
-<td style="text-align:center;">
-
--4.5 (30.4)
-</td>
-
-</tr>
-
-<tr>
-
-<td style="text-align:left;">
-
-<span style="font-weight: bold;">Δ LDL cholesterol (mac-control)</span>
-</td>
-
-<td style="text-align:center;">
-
--4.9 (27.9)
-</td>
-
-</tr>
-
-<tr>
-
-<td style="text-align:left;">
-
-<span style="font-weight: bold;">Δ HDL cholesterol (mac-control)</span>
-</td>
-
-<td style="text-align:center;">
-
--0.3 (5.5)
-</td>
-
-</tr>
-
-<tr>
-
-<td style="text-align:left;">
-
-<span style="font-weight: bold;">Δ ApoB (mac-control)</span>
-</td>
-
-<td style="text-align:center;">
-
--1.0 (12.1)
-</td>
-
-</tr>
-
-</tbody>
-
-</table>
+| Outcome                   |     Mac      |   Control    | Δ (Mac-Control) |
+|:--------------------------|:------------:|:------------:|:---------------:|
+| Total cholesterol (mg/dL) | 197.0 (24.6) | 201.5 (33.7) |   -4.5 (30.4)   |
+| LDL cholesterol (mg/dL)   | 114.0 (26.7) | 118.9 (31.5) |   -4.9 (27.9)   |
+| HDL cholesterol (mg/dL)   |  56.4 (9.7)  | 56.7 (11.5)  |   -0.3 (5.5)    |
+| ApoB (mg/dL)              | 105.0 (16.6) | 106.0 (17.0) |   -1.0 (12.1)   |
 
 ### Microbiome variables
 
