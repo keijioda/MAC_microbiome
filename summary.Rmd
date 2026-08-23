@@ -1,0 +1,450 @@
+---
+title: "MAC Microbiome Study"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Packages used
+pacs <- c("tidyverse", "readxl", "haven", "tableone", "gtsummary", "gt", "ggbeeswarm", "tidytext", "kableExtra")
+sapply(pacs, require, character.only = TRUE)
+
+```
+
+```{r read_data, include=FALSE}
+
+# Read previous MAC data --------------------------------------------------
+
+# Needed to extract treatment sequence
+mac0 <- read_spss("./data/MAC Endpoint data with baseline values 102121.sav") %>% 
+  janitor::clean_names()
+
+# Variables needed
+seq <- mac0 %>% 
+  select(id, group, phase, visit, treatment, gender, age_b, weight_b)
+
+# Distinct data with ID, Group, gender, age, weight
+# n = 35
+seq_distinct <- seq %>% 
+  select(id, group, gender, age_b, weight_b) %>% 
+  distinct()
+
+# Read cardiometabolic data -----------------------------------------------
+
+# Variable list
+cm_vars <- c(
+  "glucose",
+  "insulin",
+  "chol",
+  "trigs",
+  "hdl",
+  "ldl",
+  "vldl",
+  "apoa1",
+  "apob",
+  "crp",
+  "eselectin"
+)
+
+# 108 obs x 15 variables
+cm <- read_excel("./data/LLU_MAC Study_cardiometabolic outcomes.xlsx", sheet = "Data copy") %>% 
+  setNames(c("id", "phase", "visit", "clinic_date", cm_vars)) %>%  
+  mutate(clinic_date = as.Date(clinic_date))
+
+# Read anthropometric data ------------------------------------------------
+
+# Needed for adiposity variables
+# 35 subj x 23 vars
+adip <- read_excel("./data/MAC Anthropometric data.xlsx") %>% 
+  janitor::clean_names() %>% 
+  rename(id = study_id)
+
+# Make it to long format
+# Should have 35 * 3 = 105 obs
+adip_long <- adip %>% 
+  select(
+    id, 
+    visit_0_in_body_bmi, 
+    clinic_4_in_body_bmi,
+    clinic_9_wk_18_in_body_bmi,
+    visit_0_in_body_percent_body_fat,
+    clinic_4_in_body_percent_body_fat,
+    clinic_9_wk_18_in_body_percent_body_fat
+  ) %>%
+  rename(
+    bmi_0     = visit_0_in_body_bmi,
+    bmi_4     = clinic_4_in_body_bmi,
+    bmi_9     = clinic_9_wk_18_in_body_bmi,
+    pct_fat_0 = visit_0_in_body_percent_body_fat,
+    pct_fat_4 = clinic_4_in_body_percent_body_fat,
+    pct_fat_9 = clinic_9_wk_18_in_body_percent_body_fat
+  ) %>%
+  pivot_longer(
+    cols = -id,
+    names_to = c(".value", "visit"),
+    names_pattern = "(bmi|pct_fat)_(\\d+)"
+  ) %>%
+  mutate(visit = as.numeric(visit)) %>%
+  arrange(id, visit)
+
+
+# Read microbiome data ----------------------------------------------------
+
+# 4166 rows x 112 columns
+mb <- read_excel("./data/human_mac_study_abundance_data.xls")  
+
+# Select "Roseburia" and make it to long format
+# Results in 105 obs x 47 vars
+roseburia_long <- mb %>%
+  filter(str_starts(Species, "Roseburia")) %>%
+  select(Species, starts_with("MAC")) %>%
+  pivot_longer(
+    cols = -Species,
+    names_to = "sample",
+    values_to = "abundance"
+  ) %>%
+  mutate(
+    id    = as.integer(str_extract(sample, "(?<=MAC)\\d+")),
+    visit = as.integer(str_extract(sample, "(?<=v)\\d+"))
+  ) %>%
+  select(-sample) %>%
+  pivot_wider(
+    id_cols    = c(id, visit),
+    names_from = Species,
+    values_from = abundance,
+    values_fn  = sum   # combines rows if >1 OTU/ASV shares the same Species label
+  ) %>%
+  arrange(id, visit) %>% 
+  janitor::clean_names()
+
+
+# Merge data --------------------------------------------------------------
+
+df <- adip_long %>% 
+  inner_join(cm, by = c("id", "visit")) %>% 
+  left_join(seq_distinct, by = "id") %>% 
+  inner_join(roseburia_long, by = c("id", "visit")) %>% 
+  mutate(
+    group_lab = factor(group, labels = c("mac-control", "control-mac")),
+    phase     = ifelse(visit == 0, 0, phase),
+    treatment = case_when(
+      visit == 0                                            ~ "baseline",
+      (group == 1 & phase == 1) | (group == 2 & phase == 2) ~ "mac",
+      (group == 1 & phase == 2) | (group == 2 & phase == 1) ~ "control"
+    )
+  ) %>% 
+  select(
+    id, 
+    group, 
+    group_lab, 
+    clinic_date, 
+    visit, 
+    phase, 
+    treatment,
+    gender,
+    age_b,
+    weight_b,
+    bmi, 
+    pct_fat,
+    chol,
+    ldl, 
+    hdl,
+    apob,
+    starts_with("roseburia")
+  )
+
+```
+
+## Datasets 
+
+* Data are from a 2 x 2 crossover design (AB/BA) with control/mac treatments ([Jones et al., 2023](https://doi.org/10.1017/jns.2023.39))
+ 
+* Anthropometric data
+  * Excel file `MAC Anthropometric data.xlsx`
+  * Wide-format data for 35 unique participant IDs
+  * Includes **BMI** and **percent body fat** (at `visit 0`, `clinic 4`, and `clinic 9`)
+    * Also includes: weight (kg) and waist circumference (cm)
+ 
+* Cardiometabolic data
+  * Excel file `LLU_MAC Study_cardiometabolic outcomes.xlsx`
+  * Long-format data for 38 unique participant IDs
+    * Baseline (visit 0), Phase 1 (visit 4), Phase 2 (visit 9), and clinic date
+  * Includes **total cholesterol**, **LDL**, **HDL**, and **ApoB**
+    * Also includes: glucose, insulin, triglycerides, VLDL, ApoA1, CRP, and E-selectin
+ 
+* Microbiome data
+  * Excel file `human_mac_study_abundance_data.xls`
+  * Wide-format data with 4,166 bacteria species/ASVs, including **Roseburia**
+  * The first 7 columns are: `Domain`, `Phylum`, `Class`, `Order`, `Family`, `Genus`, and `Species`
+  * Abundance values at visits 0, 4, and 9 are stored in the 105 columns that follow, named:
+    * MAC[_ID_in_2digits_]_p1[_v0/v4/v9_]
+    
+* To extract participants' treatment sequence, use:
+  * SPSS data file `MAC Endpoint data with baseline values 102121.sav`
+  * Participant characteristics were also extracted from this file
+    * Sex, age at baseline, and weight at baseline
+    
+* Data files were merged to produce a long-format dataset
+  * 105 observations (3 visits, including baseline, × 35 participants)
+
+
+## Descriptive table at baseline
+
+* Descriptive statistics at baseline by sequence
+  * [**Need to check**] Descriptive statistics on percent body fat are slightly off, compared to the original paper ([Jones et al., 2023](https://doi.org/10.1017/jns.2023.39))
+
+```{r descriptive_table}
+
+# Using gtsummary
+pval_4dp <- function(x) {
+  ifelse(x < 0.0001, "<0.0001", sprintf("%.4f", x))
+}
+
+tbl <- df %>% 
+  filter(visit == 0) %>% 
+  select(group_lab, age_b, gender, weight_b, bmi, pct_fat, chol, ldl, hdl, apob) %>% 
+  tbl_summary(
+    by = group_lab,
+    statistic = list(
+      all_continuous()  ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    digits = all_continuous() ~ 1,
+    label  = list(
+      age_b    ~ "Age (years)",
+      gender   ~ "Sex",
+      weight_b ~ "Weight (kg)",
+      bmi      ~ "BMI (kg/m²)",
+      pct_fat  ~ "Body fat (%)",
+      chol     ~ "Total cholesterol (mg/dL)",
+      ldl      ~ "LDL cholesterol (mg/dL)",
+      hdl      ~ "HDL cholesterol (mg/dL)",
+      apob     ~ "ApoB (mg/dL)"
+    )
+  ) %>% 
+  add_overall() %>% 
+  add_p(
+    test = list(
+      all_continuous()  ~ "t.test",
+      all_categorical() ~ "fisher.test"
+    ),
+    pvalue_fun = pval_4dp
+  ) %>% 
+  bold_labels() %>% 
+  as_gt() %>% 
+  tab_header(title = "Participant characteristics at baseline") %>% 
+  opt_align_table_header(align = "left")
+
+tbl
+
+```
+
+## Exploratory analyses
+
+```{r df_delta}
+
+# Time-invariant covariates + baseline BMI/%fat, from the visit == 0 row
+baseline_df <- df %>% 
+  filter(visit == 0) %>% 
+  select(id, group, group_lab, gender, age_b, weight_b, 
+         bmi_b = bmi, pct_fat_b = pct_fat)
+
+# Mac vs. Control values, reshaped wide and differenced
+delta_df <- df %>% 
+  filter(treatment %in% c("mac", "control")) %>% 
+  select(id, treatment, chol, ldl, hdl, apob, roseburia_2) %>% 
+  pivot_wider(
+    id_cols     = id,
+    names_from  = treatment,
+    values_from = c(chol, ldl, hdl, apob, roseburia_2)
+  ) %>% 
+  mutate(
+    delta_chol        = chol_mac        - chol_control,
+    delta_ldl         = ldl_mac         - ldl_control,
+    delta_hdl         = hdl_mac         - hdl_control,
+    delta_apob        = apob_mac        - apob_control,
+    delta_roseburia_2 = roseburia_2_mac - roseburia_2_control
+  ) %>% 
+  select(id, starts_with("delta_"))
+
+# Combine into the final one-row-per-participant analytic dataset
+df_delta <- baseline_df %>% 
+  inner_join(delta_df, by = "id")
+
+```
+
+### Cardiometabolic variables
+
+* Distributions of cardiometabolic measurements (excluding baseline)
+
+```{r histogram_cardiometabolic}
+
+# Histogram
+df %>%
+  filter(phase != 0) %>% 
+  pivot_longer(cols = c("ldl", "chol", "hdl", "apob"), names_to = "var", values_to = "value") %>% 
+  mutate(
+    var = factor(var, 
+    levels = c("chol", "ldl", "hdl", "apob"), 
+    labels = c("Total cholesterol (mg/dL)", "LDL cholelsterol (mg/dL)", "HDL cholesterol (mg/dL)", "ApoB (mg/dL)")) 
+  ) %>% 
+  ggplot(aes(x = value)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 20) +
+  geom_density(color = "cornflowerblue", linewidth = 1, adjust = 2) +
+  labs(x = NULL, y = "Density") +
+  facet_wrap(~ var, scales = "free", ncol = 2)
+
+```
+
+* Profile plots of cardiometabolic measurements by sequence
+  * Each line represents a participant
+  * Visualize individual-level change across phases
+    * All within-person changes across phases fall within a physiologically plausible range
+
+```{r profile_plots_cardiometabolic, fig.width = 6, fig.height = 10}
+
+# Profile plot
+df %>% 
+  filter(visit != 0) %>%  
+  mutate(phase = factor(phase)) %>% 
+  pivot_longer(cols = c("ldl", "chol", "hdl", "apob"), names_to = "var", values_to = "value") %>% 
+  mutate(
+    var = factor(var, 
+    levels = c("chol", "ldl", "hdl", "apob"), 
+    labels = c("Total cholesterol (mg/dL)", "LDL cholelsterol (mg/dL)", "HDL cholesterol (mg/dL)", "ApoB (mg/dL)")) 
+  ) %>% 
+  ggplot(aes(x = phase, y = value, group = id, color = group_lab)) +
+  geom_point() +
+  geom_line() +
+  scale_x_discrete(breaks = 1:2, expand = expansion(add = 0.2)) +
+  labs(x = "Phase", y = NULL) +
+  facet_grid(var ~ group_lab, scales = "free", switch = "y", axes = "all_x") +
+  theme(
+    legend.position = "none",
+    strip.placement = "outside",
+    strip.background = element_blank()
+  ) 
+
+```
+
+* Waterfall plots of within-person change (mac − control) across four cardiometabolic outcomes
+  * Each bar represents one participant's change score, sorted from most negative to most positive
+  * Visualize the direction and magnitude of individual treatment response, and whether response is consistent across the cohort or driven by a subset of participants
+
+```{r waterfall_plot_cardiometabolic, fig.width = 12, fig.height = 7}
+
+# Barplot on delta
+df_delta %>% 
+  pivot_longer(
+    cols = c(delta_chol, delta_ldl, delta_hdl, delta_apob), 
+    names_to = "var", 
+    values_to = "value"
+  ) %>% 
+  mutate(
+    var = factor(var, 
+                 levels = c("delta_chol", "delta_ldl", "delta_hdl", "delta_apob"),
+                 labels = c("Δ Total cholesterol (mg/dL)", "Δ LDL (mg/dL)", 
+                            "Δ HDL (mg/dL)", "Δ ApoB (mg/dL)")),
+    id_ordered = reorder_within(id, value, var)
+  ) %>% 
+  ggplot(aes(x = id_ordered, y = value, fill = group_lab)) +
+  geom_bar(stat = "identity") +
+  scale_x_reordered() +
+  facet_wrap(~ var, scales = "free") +
+  labs(
+    x = "Participant ID",
+    y = "Difference: Macademia - Control", 
+    fill = NULL
+  ) +
+  theme(legend.position = "bottom")
+
+```
+
+* Mean (SD) within-person change (mac − control) for total cholesterol, LDL, HDL, and ApoB
+
+```{r mean_delta_cardiometabolic}
+df_delta %>% 
+  select(delta_chol, delta_ldl, delta_hdl, delta_apob) %>% 
+  tbl_summary(
+    statistic = list(
+      all_continuous()  ~ "{mean} ({sd})"
+    ),
+    digits = all_continuous() ~ 1,
+    label  = list(
+      delta_chol ~ "Δ Total cholesterol (mac-control)",
+      delta_ldl  ~ "Δ LDL cholesterol (mac-control)",
+      delta_hdl  ~ "Δ HDL cholesterol (mac-control)",
+      delta_apob ~ "Δ ApoB (mac-control)"
+    )
+  ) %>% 
+  bold_labels() %>% 
+  modify_header(label = "**Outcome**")
+  
+```
+
+### Microbiome variables
+
+* Only focusing on **Roseburia_2** for now. See the distribution below, excluding baseline:
+  * The x-axis is on the pseudo-log scale
+  * Note that there are >25 zero counts
+
+```{r histogram_roseburia_2}
+
+df %>%
+  filter(phase != 0) %>% 
+  ggplot(aes(x = roseburia_2)) +
+  geom_histogram() +
+  scale_x_continuous(transform = scales::pseudo_log_trans(), breaks = c(0, 10, 30, 100, 300, 1000, 3000)) +
+  labs(x = "Roseburia_2 (pseudo-log scale)")
+ 
+```
+
+* There are 11 participants with **Roseburia_2** = 0 in both phases
+* Six participants have **Roseburia_2 = 0** in only one of the two phases
+  * Incidentally, in all six cases, the zero occurred under the control treatment, not the macadamia treatment
+
+```{r check_zero_roseburia_2}
+
+# Checking IDs with Roseburia_2 = 0
+zero_check <- df %>% 
+  filter(phase %in% c(1, 2)) %>% 
+  select(id, phase, group_lab, roseburia_2) %>% 
+  pivot_wider(names_from = phase, values_from = roseburia_2, names_prefix = "phase_")
+
+both_zero_tbl <- zero_check %>% 
+  filter(phase_1 == 0 & phase_2 == 0) %>% 
+  select(id, group_lab, phase_1, phase_2) %>% 
+  kable(caption = "Zero in both phases")
+
+one_zero_tbl <- zero_check %>% 
+  filter(xor(phase_1 == 0, phase_2 == 0)) %>% 
+  select(id, group_lab, phase_1, phase_2) %>% 
+  kable(caption = "Zero in one phase")
+
+knitr::kables(list(both_zero_tbl, one_zero_tbl))
+
+```
+
+* Profile plots of **Roseburia_2** by sequence
+  * Shows higher **Roseburia_2** abundance under the macadamia diet
+  * The flat lines at zero correspond to the 11 participants with Roseburia_2 = 0 in both phases (see table above)
+  * Note: the y-axis uses a pseudo-log scale to accommodate true zeros, so visual distances near the bottom of the axis are compressed/expanded non-linearly relative to distances higher up
+    * A line rising from 0 shouldn't be read as directly comparable in magnitude to, say, a line rising from 300 to 1000
+
+```{r profile_plot_roseburia_2}
+# Profile plot
+df %>% 
+  filter(phase != 0) %>%
+  mutate(phase = factor(phase)) %>% 
+  ggplot(aes(x = phase, y = roseburia_2, group = id, color = group_lab)) +
+  geom_point() +
+  geom_line() +
+  scale_x_discrete(breaks = 1:2, expand = expansion(add = 0.1)) +
+  scale_y_continuous(transform = scales::pseudo_log_trans(), breaks = c(0, 10, 30, 100, 1000, 3000)) +
+  labs(x = "Phase", y = "Roseburia_2 (pseudo-log scale)", color = NULL) +
+  facet_wrap(~ group_lab) +
+  theme(legend.position = "bottom")
+
+```
