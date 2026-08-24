@@ -531,3 +531,29 @@ Zero in one phase
       magnitude to, say, a line rising from 300 to 1000
 
 ![](summary_files/figure-gfm/profile_plot_roseburia_2-1.png)<!-- -->
+
+- Median (IQR) of **Roseburia_2** by treatment, presented here (rather
+  than mean/SD or geometric mean) given the substantial zero-inflation
+  in this variable (see zero-count table above)
+
+| Mac, Median (IQR) | Control, Median (IQR) | Δ Roseburia_2 (Mac-Control) |
+|:------------------|:----------------------|:----------------------------|
+| 250.0 (483.5)     | 5.0 (75.5)            | 104.0 (427.0)               |
+
+### Bivariate relationship with cardiometabolic measures
+
+- To examine the association between Δ **Roseburia_2** and Δ total
+  cholesterol, LDL, HDL, and ApoB, scatterplots were generated for each
+  pair
+  - Participants were split into two groups by the median baseline %
+    body fat (\<43% and ≥43%), and a linear trend line was overlaid for
+    each group
+- In the scatterplots for Δ total cholesterol, LDL, and ApoB, slopes are
+  visibly different between the two adiposity groups: a stronger
+  negative association appears in the low adiposity group (\<43%), while
+  the high adiposity group (≥43%) shows a slope close to flat
+  - HDL shows little relationship with Δ Roseburia_2 in either group
+- These patterns suggest that baseline %body fat may modify the
+  association between Δ Roseburia_2 and these cardiometabolic outcomes
+
+![](summary_files/figure-gfm/scatterplot_with_cardiometabolics-1.png)<!-- -->
