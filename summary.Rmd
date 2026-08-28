@@ -2,7 +2,7 @@
 title: "MAC Microbiome Study"
 output: 
   github_document:
-    pandoc_args: ["--wrap=preserve"]
+    pandoc_args: ["--webtex"]
 always_allow_html: true
 ---
 
