@@ -4,7 +4,22 @@
 # Setup -------------------------------------------------------------------
 
 # Packages used
-pacs <- c("tidyverse", "readxl", "haven", "tableone", "gtsummary", "gt", "ggbeeswarm", "tidytext")
+pacs <- c(
+  "tidyverse",
+  "readxl", 
+  "haven", 
+  "tableone", 
+  "gtsummary",
+  "gt", 
+  "ggbeeswarm", 
+  "tidytext",
+  "emmeans",
+  "kableExtra",
+  "lme4",
+  "lmerTest",
+  "broom.mixed"
+)
+
 sapply(pacs, require, character.only = TRUE)
 
 
@@ -165,15 +180,29 @@ roseburia_long <- mb %>%
   janitor::clean_names()
 
 
+# Read Shannon index data -------------------------------------------------
+
+# 105 rows x 12 columns
+shannon <- read_csv("./data/metadata_with_alpha_div_indices.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    id    = parse_number(participant_id),
+    visit = parse_number(visit)
+  ) %>% 
+  select(id, visit, shannon)
+
+shannon
+
 # Merge data --------------------------------------------------------------
 
 # Group = 1: mac-control
 # Group = 2: control-mac
 
 df <- adip_long %>% 
-  inner_join(cm, by = c("id", "visit")) %>% 
-  left_join(seq_distinct, by = "id") %>% 
+  inner_join(cm,             by = c("id", "visit")) %>% 
+  left_join(seq_distinct,    by = c("id"))          %>% 
   inner_join(roseburia_long, by = c("id", "visit")) %>% 
+  inner_join(shannon,        by = c("id", "visit")) %>% 
   mutate(
     group_lab = factor(group, labels = c("mac-control", "control-mac")),
     phase     = ifelse(visit == 0, 0, phase),
@@ -200,6 +229,7 @@ df <- adip_long %>%
     ldl, 
     hdl,
     apob,
+    shannon,
     starts_with("roseburia")
   )
 
@@ -285,17 +315,18 @@ baseline_df <- df %>%
 # Mac vs. Control values, reshaped wide and differenced
 delta_df <- df %>% 
   filter(treatment %in% c("mac", "control")) %>% 
-  select(id, treatment, chol, ldl, hdl, apob, roseburia_2) %>% 
+  select(id, treatment, chol, ldl, hdl, apob, shannon, roseburia_2) %>% 
   pivot_wider(
     id_cols     = id,
     names_from  = treatment,
-    values_from = c(chol, ldl, hdl, apob, roseburia_2)
+    values_from = c(chol, ldl, hdl, apob, shannon, roseburia_2)
   ) %>% 
   mutate(
     delta_chol        = chol_mac        - chol_control,
     delta_ldl         = ldl_mac         - ldl_control,
     delta_hdl         = hdl_mac         - hdl_control,
     delta_apob        = apob_mac        - apob_control,
+    delta_shannon     = shannon_mac     - shannon_control,
     delta_roseburia_2 = roseburia_2_mac - roseburia_2_control
   ) %>% 
   select(id, starts_with("delta_"))
@@ -304,6 +335,18 @@ delta_df <- df %>%
 df_delta <- baseline_df %>% 
   inner_join(delta_df, by = "id")
 
+df_delta %>% 
+  ggplot(aes(x = delta_roseburia_2, y = delta_shannon)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+# Correlation b/w Δ Roseburia_2 and Δ Shannon index
+# Very weak negative correlation: r = -0.035
+df_delta %>% 
+  select(delta_roseburia_2, delta_shannon) %>% 
+  cor()
+
+cor.test(df_delta$delta_shannon, df_delta$delta_roseburia_2)
 
 # Cardiometabolic variables -----------------------------------------------
 
@@ -314,7 +357,7 @@ df %>%
   mutate(
     var = factor(var, 
     levels = c("chol", "ldl", "hdl", "apob"), 
-    labels = c("Total cholesterol (mg/dL)", "LDL cholelsterol (mg/dL)", "HDL cholesterol (mg/dL)", "ApoB (mg/dL)")) 
+    labels = c("Total cholesterol (mg/dL)", "LDL cholesterol (mg/dL)", "HDL cholesterol (mg/dL)", "ApoB (mg/dL)")) 
   ) %>% 
   ggplot(aes(x = value)) +
   geom_histogram(aes(y = after_stat(density)), bins = 20) +
@@ -350,7 +393,7 @@ df %>%
   mutate(
     var = factor(var, 
     levels = c("chol", "ldl", "hdl", "apob"), 
-    labels = c("Total cholesterol (mg/dL)", "LDL cholelsterol (mg/dL)", "HDL cholesterol (mg/dL)", "ApoB (mg/dL)")) 
+    labels = c("Total cholesterol (mg/dL)", "LDL cholesterol (mg/dL)", "HDL cholesterol (mg/dL)", "ApoB (mg/dL)")) 
   ) %>% 
   ggplot(aes(x = phase, y = value, group = id, color = group_lab)) +
   geom_point() +
@@ -382,6 +425,7 @@ df_delta %>%
   geom_beeswarm(cex = 1.5) + 
   geom_hline(yintercept = 0, lty = 2) +
   labs(x = NULL, y = "Difference, mac - control") +
+  theme_bw() +
   theme(legend.position = "none")
 
 # Barplot on delta
@@ -431,26 +475,28 @@ df_delta %>%
 # Build mac/control/delta values in one wide frame
 delta_full <- df %>% 
   filter(treatment %in% c("mac", "control")) %>% 
-  select(id, treatment, chol, ldl, hdl, apob) %>% 
+  select(id, treatment, chol, ldl, hdl, apob, shannon, roseburia_2) %>% 
   pivot_wider(
     id_cols     = id,
     names_from  = treatment,
-    values_from = c(chol, ldl, hdl, apob)
+    values_from = c(chol, ldl, hdl, apob, shannon, roseburia_2)
   ) %>% 
   mutate(
-    chol_delta = chol_mac - chol_control,
-    ldl_delta  = ldl_mac  - ldl_control,
-    hdl_delta  = hdl_mac  - hdl_control,
-    apob_delta = apob_mac - apob_control
+    chol_delta        = chol_mac - chol_control,
+    ldl_delta         = ldl_mac  - ldl_control,
+    hdl_delta         = hdl_mac  - hdl_control,
+    apob_delta        = apob_mac - apob_control,
+    shannon_delta     = shannon_mac - shannon_control,
+    roseburia_2_delta = roseburia_2_mac - roseburia_2_control
   )
 
 # Reshape to long (outcome x condition), summarize, then pivot back to wide
 summary_tbl <- delta_full %>% 
   pivot_longer(
-    cols         = -id,
-    names_to     = c("outcome", "condition"),
+    cols          = matches("^(chol|ldl|hdl|apob)_(mac|control|delta)$"),
+    names_to      = c("outcome", "condition"),
     names_pattern = "(chol|ldl|hdl|apob)_(mac|control|delta)",
-    values_to    = "value"
+    values_to     = "value"
   ) %>% 
   group_by(outcome, condition) %>% 
   summarise(mean_sd = sprintf("%.1f (%.1f)", mean(value), sd(value)), .groups = "drop") %>% 
@@ -467,9 +513,106 @@ summary_tbl <- delta_full %>%
 summary_tbl %>% knitr::kable(align = c("l", "c", "c", "c"))
 
 
-# Microbiome variables ----------------------------------------------------
 
-# Histogram
+# Shannon index -----------------------------------------------------------
+
+# Histogram, Shannon index
+df %>%
+  filter(phase != 0) %>% 
+  ggplot(aes(x = shannon)) +
+  geom_histogram() +
+  labs(x = "Shannon index") +
+  theme_bw()
+
+# Profile plot, Shannon index 
+df %>% 
+  filter(phase != 0) %>%
+  mutate(phase = factor(phase)) %>% 
+  ggplot(aes(x = phase, y = shannon, group = id, color = group_lab)) +
+  geom_point() +
+  geom_line() +
+  scale_x_discrete(breaks = 1:2, expand = expansion(add = 0.1)) +
+  labs(x = "Phase", y = "Shannon index") +
+  facet_wrap(~ group_lab) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+# Descriptive stats, Mean and SD
+delta_full %>% 
+  select(id, shannon_mac, shannon_control, shannon_delta) %>% 
+  rename(mac = shannon_mac, control = shannon_control, delta = shannon_delta) %>% 
+  pivot_longer(-id, names_to = "treatment", values_to = "value") %>% 
+  mutate(treatment = factor(treatment, levels = c("mac", "control", "delta"))) %>% 
+  group_by(treatment) %>% 
+  summarise(mean_sd = sprintf("%.2f (%.2f)", mean(value), sd(value)), .groups = "drop") %>% 
+  pivot_wider(names_from = "treatment", values_from = mean_sd) %>%
+  rename(Mac = mac, Control = control, `Δ (Mac-Control)` = delta) %>%
+  mutate(Variable = "Shannon") %>% 
+  select(Variable, everything())
+
+# Histogram on Shannon delta
+df_delta %>% 
+  ggplot(aes(x = delta_shannon)) +
+  geom_histogram()
+
+# Scatterplot of deltas
+df_delta %>% 
+  select(id, group, pct_fat_b, starts_with("delta_")) %>% 
+  mutate(
+    pct_fat_b_cat = ifelse(pct_fat_b < 43, 0, 1),
+    pct_fat_b_cat = factor(pct_fat_b_cat, labels = c("<43%", "≥43%"))
+  ) %>% 
+  pivot_longer(
+    cols = c(delta_chol, delta_ldl, delta_hdl, delta_apob),
+    names_to = "var",
+    values_to = "value"
+  ) %>% 
+  mutate(
+    var = factor(var, 
+                 levels = c("delta_chol", "delta_ldl", "delta_hdl", "delta_apob"),
+                 labels = c("Total cholesterol", "LDL", "HDL", "ApoB"))
+  ) %>% 
+  ggplot(aes(x = delta_shannon, y = value, color = pct_fat_b_cat)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  # scale_x_continuous(transform = scales::pseudo_log_trans(sigma = 1)) +
+  facet_wrap(~ var, scales = "free_y") +
+  labs(
+    x = "Δ Shannon (Mac − Control)", 
+    y = "Δ outcome (Mac − Control)",
+    color = "% fat at baselinie"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+# Scatterplot of cardiometabolic vs Shannon index
+df %>% 
+  filter(visit != 0) %>% 
+  select(id, treatment, shannon, chol, ldl, hdl, apob) %>% 
+  pivot_longer(
+    cols = c(chol, ldl, hdl, apob),
+    names_to = "var",
+    values_to = "value"
+  ) %>% 
+  mutate(
+    var = factor(var, 
+                 levels = c("chol", "ldl", "hdl", "apob"),
+                 labels = c("Total cholesterol", "LDL cholesterol", "HDL cholesterol", "ApoB"))) %>% 
+  ggplot(aes(x = shannon, y = value)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_point(aes(color = treatment)) +
+  facet_wrap(~var, scale = "free_y") +
+  labs(
+    x     = "Shannon index", 
+    y     = "Cardiometabolic measures (mg/dL)",
+    color = "Treatment"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+# Roseburia_2 -------------------------------------------------------------
+
+# Histogram, Roseburia_2
 df %>%
   filter(phase != 0) %>% 
   ggplot(aes(x = roseburia_2)) +
@@ -477,6 +620,7 @@ df %>%
   geom_density(color = "cornflowerblue", linewidth = 1, adjust = 2) +
   labs(x = NULL, y = "Density")
 
+# Histogram, Roseburia_2, log scale
 df %>%
   filter(phase != 0) %>% 
   ggplot(aes(x = roseburia_2)) +
@@ -484,7 +628,7 @@ df %>%
   scale_x_continuous(transform = scales::pseudo_log_trans()) +
   labs(x = "Roseburia_2")
 
-# Profile plot
+# Profile plot, Roseburia_2
 df %>% 
   filter(phase != 0) %>%
   mutate(phase = factor(phase)) %>% 
@@ -495,6 +639,7 @@ df %>%
   scale_y_continuous(transform = scales::pseudo_log_trans()) +
   labs(x = "Phase", y = "Roseburia_2 (pseudo-log scale)") +
   facet_wrap(~ group_lab) +
+  theme_bw() +
   theme(legend.position = "bottom")
 
 # Checking IDs with Roseburia_2 = 0
@@ -511,4 +656,426 @@ zero_check %>%
 # When Roseburia_2 = 0, it is always in the control phase
 zero_check %>% 
   filter(xor(phase_1 == 0, phase_2 == 0))
+
+# Descriptive stats, Median and IQR
+delta_full %>% 
+  select(id, roseburia_2_mac, roseburia_2_control, roseburia_2_delta) %>%
+  rename(mac = roseburia_2_mac,  control = roseburia_2_control) %>% 
+  pivot_longer(-id, names_to = "treatment", values_to = "value") %>% 
+  mutate(treatment = factor(treatment, levels = c("mac", "control", "roseburia_2_delta"))) %>% 
+  group_by(treatment) %>% 
+  summarise(median_iqr = sprintf("%.1f (%.1f)", median(value), IQR(value)), .groups = "drop") %>% 
+  pivot_wider(names_from = "treatment", values_from = median_iqr) %>% 
+  rename(Mac = mac, Control = control, `Δ (Mac-Control)` = roseburia_2_delta) %>% 
+  mutate(Variable = "Roseburia_2") %>% 
+  select(Variable, everything())
+
+# Histogram on roseburia_2 delta
+df_delta %>% 
+  ggplot(aes(x = delta_roseburia_2)) +
+  geom_histogram()
+
+# Scatterplot of deltas
+df_delta %>% 
+  select(id, group, pct_fat_b, starts_with("delta_")) %>% 
+  mutate(
+    pct_fat_b_cat = ifelse(pct_fat_b < 43, 0, 1),
+    pct_fat_b_cat = factor(pct_fat_b_cat, labels = c("<43%", "≥43%"))
+  ) %>% 
+  pivot_longer(
+    cols = c(delta_chol, delta_ldl, delta_hdl, delta_apob),
+    names_to = "var",
+    values_to = "value"
+  ) %>% 
+  mutate(
+    var = factor(var, 
+                 levels = c("delta_chol", "delta_ldl", "delta_hdl", "delta_apob"),
+                 labels = c("Total cholesterol", "LDL", "HDL", "ApoB"))
+  ) %>% 
+  ggplot(aes(x = delta_roseburia_2, y = value, color = pct_fat_b_cat)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  # scale_x_continuous(transform = scales::pseudo_log_trans(sigma = 1)) +
+  facet_wrap(~ var, scales = "free_y") +
+  labs(
+    x = "Δ Roseburia_2 (Mac − Control)", 
+    y = "Δ outcome (Mac − Control)",
+    color = "% fat at baselinie"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+# Scatterplot of cardiometabolic vs Roseburia_2
+df %>% 
+  filter(visit != 0) %>% 
+  select(id, treatment, roseburia_2, chol, ldl, hdl, apob) %>% 
+  pivot_longer(
+    cols = c(chol, ldl, hdl, apob),
+    names_to = "var",
+    values_to = "value"
+  ) %>% 
+  mutate(
+    var = factor(var, 
+                 levels = c("chol", "ldl", "hdl", "apob"),
+                 labels = c("Total cholesterol", "LDL cholesterol", "HDL cholesterol", "ApoB"))) %>% 
+  ggplot(aes(x = roseburia_2, y = value)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_point(aes(color = treatment)) +
+  scale_x_continuous(transform = scales::pseudo_log_trans()) +
+  facet_wrap(~var, scale = "free_y") +
+  labs(
+    x     = "Roseburia_2", 
+    y     = "Cardiometabolic measures (mg/dL)",
+    color = "Treatment"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+
+# Linear model for Shannon index ------------------------------------------
+
+# Define outcomes
+outcomes   <- c("delta_chol", "delta_ldl", "delta_hdl", "delta_apob")
+
+# Center %body fat at its median value of 43%
+summary(df_delta$pct_fat_b)
+
+# Run linear model with %fat and its interaction with Shannon index
+# None of interaction terms was significant 
+lm_fits <- outcomes %>% 
+  paste("~ delta_shannon * I(pct_fat_b - 43) + group") %>% 
+  lapply(lm, data = df_delta) %>% 
+  setNames(outcomes)
+
+# Estimated beta coefficients
+lm_fits %>% lapply(summary)
+
+# Run linear model without %fat and its interaction
+# Significant positive association in total chol, LDL, and ApoB
+# None of interaction terms was significant 
+lm_fits <- outcomes %>% 
+  paste("~ delta_shannon + I(pct_fat_b - 43) + group") %>% 
+  lapply(lm, data = df_delta) %>% 
+  setNames(outcomes)
+
+# Estimated beta coefficients
+lm_fits %>% lapply(summary)
+
+# Tidy each model with 95% CIs, stack into one long data frame
+coef_tbl <- lm_fits %>% 
+  imap_dfr(~ tidy(.x, conf.int = TRUE) %>% mutate(outcome = .y))
+
+term_labels <- c(
+  "(Intercept)"        = "Intercept",
+  "delta_shannon"      = "Δ Shannon index",
+  "I(pct_fat_b - 43)"  = "%Body fat (centered)",
+  "group"              = "Sequence group"
+)
+
+outcome_labels <- c(
+  delta_chol = "Total cholesterol", delta_ldl = "LDL",
+  delta_hdl  = "HDL",               delta_apob = "ApoB"
+)
+
+coef_long <- coef_tbl %>% 
+  mutate(
+    term    = factor(term, levels = names(term_labels), labels = term_labels),
+    outcome = factor(outcome, levels = names(outcome_labels), labels = outcome_labels)
+  ) %>% 
+  transmute(
+    Outcome    = outcome,
+    Term       = term,
+    Beta       = sprintf("%.3f", estimate),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = pval_4dp(p.value)
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+coef_long %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+
+# Linear mixed model for Shannon index ------------------------------------
+
+# Exclude baseline
+# Create within- and between-subject terms
+baseline_fat <- df %>% 
+  filter(visit == 0) %>% 
+  select(id, pct_fat_b = pct_fat)
+
+df_long <- df %>% 
+  left_join(baseline_fat, by = "id") %>% 
+  filter(treatment %in% c("mac", "control")) %>% 
+  group_by(id) %>% 
+  mutate(
+    shannon_between = mean(shannon),
+    shannon_within  = shannon - shannon_between,
+    roseburia_2_between = mean(roseburia_2),
+    roseburia_2_within  = roseburia_2 - roseburia_2_between
+  ) %>% 
+  ungroup()
+
+# Mixed-model equivalent of elta lm() approach
+
+# Define outcomes
+outcomes   <- c("chol", "ldl", "hdl", "apob")
+
+# Run linear mixed model with %fat and its interaction with Shannon index
+# None of interaction terms was significant 
+lmer_fits_intx <- outcomes %>% 
+  paste("~ treatment + group + shannon_within * I(pct_fat_b - 43) + shannon_between + (1 | id)") %>% 
+  lapply(lmer, data = df_long) %>% 
+  setNames(outcomes)
+
+lmer_fits_intx %>% lapply(summary)
+
+# Drop the interaction term 
+lmer_fits <- outcomes %>% 
+  paste("~ treatment + group + shannon_within + I(pct_fat_b - 43) + shannon_between + (1 | id)") %>% 
+  lapply(lmer, data = df_long) %>% 
+  setNames(outcomes)
+
+lmer_fits %>% lapply(summary)
+
+# Tidy each mixed model's fixed effects, with 95% CIs
+coef_tbl_mixed <- lmer_fits %>% 
+  imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
+
+# Term labels -- check unique(coef_tbl_mixed$term) and adjust if
+# "treatmentmac" doesn't match your factor's reference level
+term_labels <- c(
+  "(Intercept)"       = "Intercept",
+  "treatmentmac"      = "Treatment (Mac vs. Control)",
+  "group"             = "Sequence group",
+  "shannon_within"    = "Shannon index (within-subject)",
+  "I(pct_fat_b - 43)" = "%Body fat (centered)",
+  "shannon_between"   = "Shannon index (between-subject)"
+)
+
+outcome_labels <- c(
+  chol = "Total cholesterol", ldl = "LDL",
+  hdl  = "HDL",               apob = "ApoB"
+)
+
+coef_long_mixed <- coef_tbl_mixed %>% 
+  mutate(
+    sig     = p.value < 0.05 & term != "(Intercept)",
+    term    = factor(term, levels = names(term_labels), labels = term_labels),
+    outcome = factor(outcome, levels = names(outcome_labels), labels = outcome_labels)
+  ) %>% 
+  transmute(
+    Outcome    = outcome,
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+coef_long_mixed %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+# Linear model for Roseburia_2 --------------------------------------------
+
+# Define outcomes
+outcomes   <- c("delta_chol", "delta_ldl", "delta_hdl", "delta_apob")
+
+# Center %body fat at its median value of 43%
+summary(df_delta$pct_fat_b)
+
+# Run linear model with %fat and its interaction with Roseburia_2
+# Interaction was significant for CHOL (p = 0.0278) and LDL (p = 0.0205) 
+lm_fits <- outcomes %>% 
+  paste("~ I(delta_roseburia_2 / 100) * I(pct_fat_b - 43) + group") %>% 
+  lapply(lm, data = df_delta) %>% 
+  setNames(outcomes)
+
+# Estimated beta coefficients
+lm_fits %>% lapply(summary)
+
+# Tidy each model with 95% CIs, stack into one long data frame
+coef_tbl <- lm_fits %>% 
+  imap_dfr(~ tidy(.x, conf.int = TRUE) %>% mutate(outcome = .y))
+
+term_labels <- c(
+  "(Intercept)"                                 = "Intercept",
+  "I(delta_roseburia_2/100)"                    = "Δ Roseburia_2 (per 100 units)",
+  "I(pct_fat_b - 43)"                           = "%Body fat (centered)",
+  "group"                                       = "Sequence group",
+  "I(delta_roseburia_2/100):I(pct_fat_b - 43)"  = "Δ Roseburia_2 \u00d7 %Body fat"
+)
+
+outcome_labels <- c(
+  delta_chol = "Δ Total cholesterol", 
+  delta_ldl = "Δ LDL",
+  delta_hdl  = "Δ HDL",               
+  delta_apob = "Δ ApoB"
+)
+
+coef_long <- coef_tbl %>% 
+  mutate(
+    sig     = p.value < 0.05 & term != "(Intercept)",
+    term    = factor(term, levels = names(term_labels), labels = term_labels),
+    outcome = factor(outcome, levels = names(outcome_labels), labels = outcome_labels)
+  ) %>% 
+  transmute(
+    Outcome    = outcome,
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+coef_long %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+
+# Mean %body fat within each side of the median split (mirrors the paper's grouping)
+fat_means <- df_delta %>% 
+  mutate(fat_grp = if_else(pct_fat_b < 43, "Low (<43%)", "High (≥43%)")) %>% 
+  group_by(fat_grp) %>% 
+  summarise(mean_fat = mean(pct_fat_b), .groups = "drop")
+
+fat_means
+
+# Slope of delta_roseburia_2 on each outcome, at each group's mean %body fat
+slopes <- lm_fits %>% 
+  lapply(function(m) {
+    emtrends(m, ~ pct_fat_b, var = "delta_roseburia_2",
+             at = list(pct_fat_b = fat_means$mean_fat),
+             data = df_delta) %>% 
+      summary(infer = TRUE) %>% 
+      mutate(
+        delta_roseburia_2.trend = delta_roseburia_2.trend * 100,
+        SE       = SE * 100,
+        lower.CL = lower.CL * 100,
+        upper.CL = upper.CL * 100
+      )
+  })
+
+slopes
+
+# Build a clean summary table of the slopes
+outcome_labels <- c(
+  delta_chol = "Total cholesterol", delta_ldl = "LDL",
+  delta_hdl  = "HDL",               delta_apob = "ApoB"
+)
+
+slopes_tbl <- slopes %>% 
+  imap_dfr(~ as_tibble(.x) %>% mutate(outcome = .y)) %>% 
+  mutate(
+    outcome   = factor(outcome, levels = names(outcome_labels), labels = outcome_labels),
+    fat_group = if_else(pct_fat_b < 43, "<43%", "\u226543%"),
+    fat_group = factor(fat_group, levels = c("<43%", "\u226543%"))
+  ) %>% 
+  arrange(outcome, fat_group) %>% 
+  transmute(
+    Outcome            = outcome,
+    `%Body fat group`  = fat_group,
+    Beta       = sprintf("%.3f", delta_roseburia_2.trend),
+    `Lower CI` = sprintf("%.3f", lower.CL),
+    `Upper CI` = sprintf("%.3f", upper.CL),
+    `P-value`  = pval_4dp(p.value)
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+slopes_tbl %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+
+# Linear mixed model for Roseburia_2 --------------------------------------
+
+# Mixed-model equivalent of elta lm() approach
+# Define outcomes
+outcomes   <- c("chol", "ldl", "hdl", "apob")
+
+# Run linear mixed model with %fat and its interaction with Roseburia_2
+# Significant interaction terms in TC, LDL, and ApoB 
+lmer_fits_intx <- outcomes %>% 
+  paste("~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id)") %>% 
+  lapply(lmer, data = df_long) %>% 
+  setNames(outcomes)
+
+lmer_fits_intx %>% lapply(summary)
+
+# Tidy each mixed model's fixed effects, with 95% CIs
+coef_tbl_mixed <- lmer_fits_intx %>% 
+  imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
+
+# Term labels -- check unique(coef_tbl_mixed$term) and adjust names below
+# if any don't match (e.g. "treatmentmac" depends on which level of
+# `treatment` R picked as the reference)
+term_labels <- c(
+  "(Intercept)"                                 = "Intercept",
+  "treatmentmac"                                = "Treatment (Mac vs. Control)",
+  "group"                                        = "Sequence group",
+  "I(roseburia_2_within/100)"                   = "Roseburia_2 (within-subject, per 100 units)",
+  "I(pct_fat_b - 43)"                            = "%Body fat (centered)",
+  "I(roseburia_2_between/100)"                  = "Roseburia_2 (between-subject, per 100 units)",
+  "I(roseburia_2_within/100):I(pct_fat_b - 43)" = "Roseburia_2 (within) \u00d7 %Body fat"
+)
+
+outcome_labels <- c(
+  chol = "Total cholesterol", ldl = "LDL",
+  hdl  = "HDL",               apob = "ApoB"
+)
+
+coef_long_mixed <- coef_tbl_mixed %>% 
+  mutate(
+    sig     = p.value < 0.05 & term != "(Intercept)",
+    term    = factor(term, levels = names(term_labels), labels = term_labels),
+    outcome = factor(outcome, levels = names(outcome_labels), labels = outcome_labels)
+  ) %>% 
+  transmute(
+    Outcome    = outcome,
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+coef_long_mixed %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+slopes_mixed <- lmer_fits_intx %>% 
+  lapply(function(m) {
+    emtrends(m, ~ pct_fat_b, var = "roseburia_2_within",
+             at = list(pct_fat_b = fat_means$mean_fat),
+             data = df_long) %>% 
+      summary(infer = TRUE) %>% 
+      mutate(
+        roseburia_2_within.trend = roseburia_2_within.trend * 100,
+        SE       = SE * 100,
+        lower.CL = lower.CL * 100,
+        upper.CL = upper.CL * 100
+      )
+  })
+
+slopes_mixed
+
+slopes_tbl <- slopes_mixed %>% 
+  imap_dfr(~ as_tibble(.x) %>% mutate(outcome = .y)) %>% 
+  mutate(
+    outcome   = factor(outcome, levels = names(outcome_labels), labels = outcome_labels),
+    fat_group = if_else(pct_fat_b < 43, "<43%", "\u226543%"),
+    fat_group = factor(fat_group, levels = c("<43%", "\u226543%"))
+  ) %>% 
+  arrange(outcome, fat_group) %>% 
+  transmute(
+    Outcome            = outcome,
+    `%Body fat group`  = fat_group,
+    Beta       = sprintf("%.3f", roseburia_2_within.trend),
+    `Lower CI` = sprintf("%.3f", lower.CL),
+    `Upper CI` = sprintf("%.3f", upper.CL),
+    `P-value`  = pval_4dp(p.value)
+  )
+
+slopes_tbl %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
 

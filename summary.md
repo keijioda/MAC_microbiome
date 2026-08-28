@@ -27,13 +27,18 @@ MAC Microbiome Study
 - Microbiome data
 
   - Excel file `human_mac_study_abundance_data.xls`
-  - Wide-format data with 4,166 bacteria species/ASVs, including
-    **Roseburia**
-  - The first 7 columns are: `Domain`, `Phylum`, `Class`, `Order`,
-    `Family`, `Genus`, and `Species`
-  - Abundance values at visits 0, 4, and 9 are stored in the 105 columns
-    that follow, named:
-    - MAC\[*ID_in_2digits*\]\_p1\[*v0/v4/v9*\]
+    - Wide-format data with 4,166 bacteria species/ASVs, including
+      **Roseburia**
+    - The first 7 columns are: `Domain`, `Phylum`, `Class`, `Order`,
+      `Family`, `Genus`, and `Species`
+    - Abundance values at visits 0, 4, and 9 are stored in the 105
+      columns that follow, named:
+      - MAC\[*ID_in_2digits*\]\_p1\[*v0/v4/v9*\]
+  - CSV file `metadata_with_alpha_div_indices.csv`
+    - Long-format data for 35 unique participant IDs (3 visits x 35 =
+      105 observations)
+    - Includes other diversity indices such as Simpson, Chao1, and
+      observed (richness?)
 
 - To extract participants’ treatment sequence, use:
 
@@ -427,6 +432,7 @@ categorical variables. P-values from Welch’s two-sample t-test
 ### Cardiometabolic variables
 
 - Distributions of cardiometabolic measurements (excluding baseline)
+  - No transformation appears necessary
 
 ![](summary_files/figure-gfm/histogram_cardiometabolic-1.png)<!-- -->
 
@@ -445,6 +451,8 @@ categorical variables. P-values from Welch’s two-sample t-test
   - Visualize the direction and magnitude of individual treatment
     response, and whether response is consistent across the cohort or
     driven by a subset of participants
+  - Total cholesterol, LDL, and ApoB all skew toward reduction, with
+    more and larger negative bars than positive ones
 
 ![](summary_files/figure-gfm/waterfall_plot_cardiometabolic-1.png)<!-- -->
 
@@ -458,10 +466,46 @@ categorical variables. P-values from Welch’s two-sample t-test
 | HDL cholesterol (mg/dL)   |  56.4 (9.7)  | 56.7 (11.5)  |   -0.3 (5.5)    |
 | ApoB (mg/dL)              | 105.0 (16.6) | 106.0 (17.0) |   -1.0 (12.1)   |
 
-### Microbiome variables
+### Shannon index
 
-- Only focusing on **Roseburia_2** for now. See the distribution below,
-  excluding baseline:
+- See the distribution of the Shannon index below, excluding baseline
+  - The index ranges from 1.9 to 4.9
+
+![](summary_files/figure-gfm/histogram_shannon-1.png)<!-- -->
+
+- Profile plots of the Shannon index by sequence
+  - Baseline Shannon diversity varies widely across participants (from
+    about 2 up to nearly 5), while within-person changes between Phase 1
+    and Phase 2 are generally small; most lines are close to flat
+
+![](summary_files/figure-gfm/profile_plot_shannon-1.png)<!-- -->
+
+- Mean (SD) of the Shannon index by treatment
+
+| Variable | Mac, Mean (SD) | Control, Mean (SD) | Δ (Mac-Control) |
+|:---------|:---------------|:-------------------|:----------------|
+| Shannon  | 3.80 (0.62)    | 3.68 (0.74)        | 0.12 (0.26)     |
+
+### Bivariate relationship between the Shannon index and cardiometabolic measures
+
+- To examine the association between Δ Shannon index and Δ total
+  cholesterol, LDL, HDL, and ApoB, scatterplots were generated for each
+  pair
+  - Participants were split into two groups by the median baseline %
+    body fat (\<43% and ≥43%), and a linear trend line was overlaid for
+    each group
+- For total cholesterol, LDL, and ApoB, both adiposity groups show a
+  positive slope, whereas HDL shows little association with Δ Shannon at
+  all.
+- The slopes are similar between the two adiposity groups, suggesting
+  that baseline adiposity may not modify the association with Δ Shannon
+  index.
+
+![](summary_files/figure-gfm/scatterplot_shannon_cardiometabolics-1.png)<!-- -->
+
+### Roseburia_2
+
+- See the distribution of **Roseburia_2** below, excluding baseline:
   - The x-axis is on the pseudo-log scale
   - Note that there are \>25 zero counts
 
@@ -536,11 +580,11 @@ Zero in one phase
   than mean/SD or geometric mean) given the substantial zero-inflation
   in this variable (see zero-count table above)
 
-| Mac, Median (IQR) | Control, Median (IQR) | Δ Roseburia_2 (Mac-Control) |
-|:------------------|:----------------------|:----------------------------|
-| 250.0 (483.5)     | 5.0 (75.5)            | 104.0 (427.0)               |
+| Variable    | Mac, Median (IQR) | Control, Median (IQR) | Δ (Mac-Control) |
+|:------------|:------------------|:----------------------|:----------------|
+| Roseburia_2 | 250.0 (483.5)     | 5.0 (75.5)            | 104.0 (427.0)   |
 
-### Bivariate relationship with cardiometabolic measures
+### Bivariate relationship between Roseburia_2 and cardiometabolic measures
 
 - To examine the association between Δ **Roseburia_2** and Δ total
   cholesterol, LDL, HDL, and ApoB, scatterplots were generated for each
@@ -556,4 +600,250 @@ Zero in one phase
 - These patterns suggest that baseline %body fat may modify the
   association between Δ Roseburia_2 and these cardiometabolic outcomes
 
-![](summary_files/figure-gfm/scatterplot_with_cardiometabolics-1.png)<!-- -->
+![](summary_files/figure-gfm/scatterplot_roseburia2_cardiometabolics-1.png)<!-- -->
+
+## Modelling
+
+- Two modelling approaches were considered:
+  - Linear models with the within-subject difference (Mac − Control) of
+    cardiometabolic measures as the outcome
+    - The models include the within-subject difference of the microbiome
+      variable, the baseline value of %body fat (centered at its median
+      value), a multiplicative interaction between the two, and sequence
+    - e.g.,
+      $\Delta TC_i = \beta_0 + \beta_1(Sequence_i) + \beta_2(\Delta Microbiome_i) + \beta_3(Adiposity_i) + \beta_4(\Delta Microbiome_i \times Adiposity_i) + \epsilon_i, \ i = 1,\cdots,n$
+      - $\beta_4$ is the primary parameter of interest, testing whether
+        baseline adiposity modifies the association between
+        $\Delta Microbiome$ and $\Delta TC$
+  - Linear mixed models with cardiometabolic measures at phase $j$ as
+    the outcome
+    - The microbiome variable is decomposed into a within-subject
+      component (each phase’s value expressed as a deviation from that
+      subject’s own mean) and a between-subject component (that
+      subject’s mean level across the two phases), to avoid conflating
+      the two; the interaction is specified using the within-subject
+      component only, since that is the piece reflecting the
+      treatment-driven contrast
+    - The model also includes treatment, sequence, and a random
+      intercept for subject
+    - e.g.,
+      $TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij}, \ i = 1,\cdots,n; \ j = 1,2$
+    - where $u_i \sim N(0,\sigma^2_u)$ is a random intercept for subject
+      $i$, and $\epsilon_{ij} \sim N(0,\sigma^2_e)$ is the residual
+      error
+      - $\beta_5$ is the corresponding parameter of interest here,
+        testing the same interaction as $\beta_4$ in the delta model
+        above, using the within-subject microbiome component
+- Although the two models use different estimation methods (ordinary
+  least squares vs REML), both approaches should produce similar results
+  - With exactly two phases per subject, the within-subject microbiome
+    component in the mixed model is mathematically tied to the delta
+    microbiome measure used in the linear model (see above), so both
+    models are ultimately testing the same underlying within-subject
+    association
+  - The mixed model estimates the within-subject residual variance
+    directly from the full set of repeated measures, while the linear
+    model estimates it from the already-differenced values; this can
+    give the mixed model slightly more precision (and correspondingly
+    smaller p-values) for within-subject terms, but should not change
+    the direction or general magnitude of the estimated effects
+
+### Linear models with Δ Shannon index
+
+- When Δ cardiometabolic outcomes were regressed on Δ Shannon index,
+  baseline %body fat (centered at its median value of 43%), their
+  interaction, and sequence, none of the interaction terms was
+  statistically significant.
+  - This is also supported by the scatterplots shown earlier of Δ
+    Shannon index against the Δ cardiometabolic measures.
+- The models were then refit, removing the interaction between Δ Shannon
+  index and %body fat
+  - Δ Shannon index showed a significant positive association with ΔTC,
+    ΔLDL, and ΔApoB
+  - There was no significant association with ΔHDL
+
+| Outcome | Term | Beta | Lower CI | Upper CI | P-value |
+|:---|:---|:--:|:--:|:--:|:--:|
+| Total cholesterol | Intercept | -27.967 | -60.378 | 4.444 | 0.0883 |
+|  | Δ Shannon index | **44.357** | 2.610 | 86.104 | **0.0380** |
+|  | %Body fat (centered) | 0.120 | -1.738 | 1.979 | 0.8958 |
+|  | Sequence group | 12.234 | -7.805 | 32.273 | 0.2224 |
+| LDL | Intercept | -26.112 | -55.621 | 3.396 | 0.0808 |
+|  | Δ Shannon index | **40.111** | 2.103 | 78.120 | **0.0393** |
+|  | %Body fat (centered) | 0.265 | -1.427 | 1.957 | 0.7514 |
+|  | Sequence group | 11.133 | -7.111 | 29.377 | 0.2226 |
+| HDL | Intercept | -3.190 | -9.545 | 3.164 | 0.3138 |
+|  | Δ Shannon index | 2.414 | -5.771 | 10.599 | 0.5518 |
+|  | %Body fat (centered) | -0.078 | -0.442 | 0.287 | 0.6669 |
+|  | Sequence group | 1.718 | -2.210 | 5.647 | 0.3792 |
+| ApoB | Intercept | -7.704 | -20.563 | 5.156 | 0.2310 |
+|  | Δ Shannon index | **16.637** | 0.073 | 33.201 | **0.0491** |
+|  | %Body fat (centered) | 0.257 | -0.481 | 0.994 | 0.4832 |
+|  | Sequence group | 3.260 | -4.691 | 11.210 | 0.4095 |
+
+### Linear mixed models with Shannon index
+
+- When linear mixed models were fitted instead, again none of the
+  interaction terms between the within-subject Shannon index and
+  baseline %body fat was statistically significant
+
+- The models were then refit, removing the interaction. The results were
+  similar to those obtained from the linear models:
+
+  - The within-subject Shannon index showed a significant positive
+    association with total cholesterol, LDL, and ApoB
+  - There was no significant association with HDL
+
+| Outcome | Term | Beta | Lower CI | Upper CI | P-value |
+|:---|:---|:--:|:--:|:--:|:--:|
+| Total cholesterol | Intercept | 219.736 | 158.915 | 280.557 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -9.857 | -20.802 | 1.088 | 0.0759 |
+|  | Sequence group | 1.629 | -16.582 | 19.840 | 0.8564 |
+|  | Shannon index (within-subject) | **44.165** | 5.166 | 83.163 | **0.0277** |
+|  | %Body fat (centered) | 0.047 | -1.556 | 1.650 | 0.9526 |
+|  | Shannon index (between-subject) | -4.804 | -18.602 | 8.994 | 0.4830 |
+| LDL | Intercept | 133.207 | 72.822 | 193.592 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -9.888 | -19.874 | 0.097 | 0.0521 |
+|  | Sequence group | 8.621 | -9.469 | 26.711 | 0.3386 |
+|  | Shannon index (within-subject) | **41.086** | 5.506 | 76.666 | **0.0249** |
+|  | %Body fat (centered) | -0.047 | -1.639 | 1.545 | 0.9523 |
+|  | Shannon index (between-subject) | -6.598 | -20.304 | 7.108 | 0.3338 |
+| HDL | Intercept | 45.404 | 21.573 | 69.235 | 0.0005 |
+|  | Treatment (Mac vs. Control) | -0.491 | -2.613 | 1.631 | 0.6409 |
+|  | Sequence group | -1.142 | -8.296 | 6.012 | 0.7469 |
+|  | Shannon index (within-subject) | 1.689 | -5.873 | 9.251 | 0.6525 |
+|  | %Body fat (centered) | 0.365 | -0.265 | 0.995 | 0.2460 |
+|  | Shannon index (between-subject) | 3.566 | -1.854 | 8.986 | 0.1894 |
+| ApoB | Intercept | 123.220 | 86.838 | 159.602 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -3.247 | -7.572 | 1.077 | 0.1361 |
+|  | Sequence group | 3.195 | -7.720 | 14.110 | 0.5548 |
+|  | Shannon index (within-subject) | **18.244** | 2.836 | 33.652 | **0.0217** |
+|  | %Body fat (centered) | 0.214 | -0.747 | 1.174 | 0.6534 |
+|  | Shannon index (between-subject) | -5.532 | -13.801 | 2.738 | 0.1823 |
+
+### Linear models with Δ Roseburia_2
+
+- Δ Roseburia_2 was rescaled to units of 100 (i.e., divided by 100)
+  prior to modelling, so that the estimated coefficients reflect the
+  change in outcome associated with a 100-unit increase in Δ
+  Roseburia_2, a more interpretable and reportable unit given that raw
+  abundance values range from the hundreds to over a thousand
+
+- When Δ cardiometabolic outcomes were regressed on Δ Roseburia_2,
+  baseline %body fat (centered at its median value of 43%), their
+  interaction, and sequence, the interaction term was statistically
+  significant for ΔTC and ΔLDL.
+
+  - A similar trend was observed for ΔApoB, although the interaction did
+    not reach statistical significance (p = 0.0673).
+  - No such interaction was observed for ΔHDL (p = 0.855).
+  - All of these results were consistent with the scatterplots shown
+    earlier of Δ Roseburia_2 against the Δ cardiometabolic measures.
+
+| Outcome | Term | Beta | Lower CI | Upper CI | P-value |
+|:---|:---|:--:|:--:|:--:|:--:|
+| Δ Total cholesterol | Intercept | -4.151 | -38.222 | 29.920 | 0.8052 |
+|  | Δ Roseburia_2 (per 100 units) | -1.720 | -4.264 | 0.825 | 0.1777 |
+|  | %Body fat (centered) | -0.637 | -2.800 | 1.526 | 0.5519 |
+|  | Sequence group | 3.081 | -18.226 | 24.389 | 0.7698 |
+|  | Δ Roseburia_2 × %Body fat | **0.523** | 0.061 | 0.985 | **0.0278** |
+| Δ LDL | Intercept | -3.130 | -33.414 | 27.154 | 0.8343 |
+|  | Δ Roseburia_2 (per 100 units) | -2.162 | -4.424 | 0.100 | 0.0603 |
+|  | %Body fat (centered) | -0.459 | -2.382 | 1.463 | 0.6293 |
+|  | Sequence group | 3.016 | -15.923 | 21.955 | 0.7473 |
+|  | Δ Roseburia_2 × %Body fat | **0.492** | 0.081 | 0.903 | **0.0205** |
+| Δ HDL | Intercept | -2.731 | -9.527 | 4.066 | 0.4184 |
+|  | Δ Roseburia_2 (per 100 units) | 0.121 | -0.387 | 0.629 | 0.6297 |
+|  | %Body fat (centered) | -0.068 | -0.499 | 0.364 | 0.7511 |
+|  | Sequence group | 1.391 | -2.860 | 5.642 | 0.5090 |
+|  | Δ Roseburia_2 × %Body fat | 0.008 | -0.084 | 0.100 | 0.8554 |
+| Δ ApoB | Intercept | 0.529 | -13.274 | 14.333 | 0.9381 |
+|  | Δ Roseburia_2 (per 100 units) | -0.544 | -1.575 | 0.487 | 0.2896 |
+|  | %Body fat (centered) | 0.032 | -0.844 | 0.908 | 0.9413 |
+|  | Sequence group | 0.121 | -8.511 | 8.754 | 0.9773 |
+|  | Δ Roseburia_2 × %Body fat | 0.174 | -0.013 | 0.361 | 0.0673 |
+
+- Since the interaction term was significant for ΔTC and ΔLDL, the slope
+  of Δ Roseburia_2 was estimated separately within each %body fat group
+  (\<43% and ≥43%) to characterize how the association between Δ
+  Roseburia_2 and these outcomes differs by baseline adiposity
+  - Group-specific slopes are shown for all four outcomes for
+    completeness
+- A significant negative association with Δ Roseburia_2 was observed
+  only in the lower adiposity group (\<43% body fat), for both ΔTC (β =
+  −4.527, 95% CI: −8.619 to −0.435, p = 0.0313) and ΔLDL (β = −4.803,
+  95% CI: −8.440 to −1.166, p = 0.0114).
+  - No association was evident in the higher adiposity group (≥43%) for
+    either outcome (ΔTC: β = 0.450, p = 0.7302; ΔLDL: β = −0.121, p =
+    0.9166).
+
+| Outcome           | %Body fat group |  Beta  | Lower CI | Upper CI | P-value |
+|:------------------|:----------------|:------:|:--------:|:--------:|:-------:|
+| Total cholesterol | \<43%           | -4.527 |  -8.619  |  -0.435  | 0.0313  |
+|                   | ≥43%            | 0.450  |  -2.189  |  3.088   | 0.7302  |
+| LDL               | \<43%           | -4.803 |  -8.440  |  -1.166  | 0.0114  |
+|                   | ≥43%            | -0.121 |  -2.467  |  2.224   | 0.9166  |
+| HDL               | \<43%           | 0.077  |  -0.740  |  0.893   | 0.8495  |
+|                   | ≥43%            | 0.155  |  -0.371  |  0.682   | 0.5509  |
+| ApoB              | \<43%           | -1.478 |  -3.136  |  0.180   | 0.0786  |
+|                   | ≥43%            | 0.178  |  -0.891  |  1.247   | 0.7368  |
+
+### Linear mixed models with Roseburia_2
+
+- When linear mixed models were fitted instead, the interaction term
+  between the within-subject **Roseburia_2** and baseline %body fat was
+  statistically significant for TC, LDL, and ApoB
+  - Note that, in contrast to the linear model above, the interaction
+    became significant for ApoB (p = 0.0133)
+
+| Outcome | Term | Beta | Lower CI | Upper CI | P-value |
+|:---|:---|:--:|:--:|:--:|:--:|
+| Total cholesterol | Intercept | 195.396 | 165.770 | 225.022 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | 0.491 | -11.421 | 12.404 | 0.9336 |
+|  | Sequence group | 1.924 | -16.419 | 20.267 | 0.8320 |
+|  | Roseburia_2 (within-subject, per 100 units) | -1.596 | -4.039 | 0.847 | 0.1927 |
+|  | %Body fat (centered) | 0.097 | -1.511 | 1.704 | 0.9032 |
+|  | Roseburia_2 (between-subject, per 100 units) | 0.371 | -2.564 | 3.306 | 0.7984 |
+|  | Roseburia_2 (within) × %Body fat | **0.466** | 0.120 | 0.811 | **0.0098** |
+| LDL | Intercept | 101.715 | 72.158 | 131.272 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | 1.403 | -9.165 | 11.972 | 0.7885 |
+|  | Sequence group | 9.182 | -9.186 | 27.550 | 0.3158 |
+|  | Roseburia_2 (within-subject, per 100 units) | -2.073 | -4.240 | 0.094 | 0.0602 |
+|  | %Body fat (centered) | 0.032 | -1.578 | 1.641 | 0.9680 |
+|  | Roseburia_2 (between-subject, per 100 units) | 0.190 | -2.750 | 3.129 | 0.8962 |
+|  | Roseburia_2 (within) × %Body fat | **0.455** | 0.149 | 0.762 | **0.0048** |
+| HDL | Intercept | 58.013 | 46.700 | 69.326 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -0.649 | -3.030 | 1.731 | 0.5824 |
+|  | Sequence group | -1.913 | -9.007 | 5.181 | 0.5863 |
+|  | Roseburia_2 (within-subject, per 100 units) | 0.134 | -0.354 | 0.622 | 0.5804 |
+|  | %Body fat (centered) | 0.290 | -0.332 | 0.911 | 0.3495 |
+|  | Roseburia_2 (between-subject, per 100 units) | 0.857 | -0.278 | 1.992 | 0.1337 |
+|  | Roseburia_2 (within) × %Body fat | 0.008 | -0.061 | 0.077 | 0.8084 |
+| ApoB | Intercept | 100.603 | 82.730 | 118.476 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | 0.709 | -4.078 | 5.495 | 0.7649 |
+|  | Sequence group | 4.000 | -7.175 | 15.175 | 0.4708 |
+|  | Roseburia_2 (within-subject, per 100 units) | -0.551 | -1.532 | 0.431 | 0.2618 |
+|  | %Body fat (centered) | 0.303 | -0.676 | 1.282 | 0.5322 |
+|  | Roseburia_2 (between-subject, per 100 units) | -0.528 | -2.316 | 1.260 | 0.5517 |
+|  | Roseburia_2 (within) × %Body fat | **0.178** | 0.040 | 0.317 | **0.0133** |
+
+- Similarly, the slope of the within-subject **Roseburia_2** term was
+  estimated separately within each %body fat group (\<43% and ≥43%)
+
+- A significant negative association with the within-subject
+  **Roseburia_2** term was observed only in the lower adiposity group
+  (\<43% body fat), for TC, LDL, and ApoB
+
+  - No association was evident in the higher adiposity group (≥43%) for
+    any of the three outcomes
+
+| Outcome           | %Body fat group |  Beta  | Lower CI | Upper CI | P-value |
+|:------------------|:----------------|:------:|:--------:|:--------:|:-------:|
+| Total cholesterol | \<43%           | -4.095 |  -7.578  |  -0.613  | 0.0226  |
+|                   | ≥43%            | 0.336  |  -2.096  |  2.767   | 0.7803  |
+| LDL               | \<43%           | -4.516 |  -7.606  |  -1.427  | 0.0055  |
+|                   | ≥43%            | -0.185 |  -2.342  |  1.973   | 0.8626  |
+| HDL               | \<43%           | 0.089  |  -0.607  |  0.785   | 0.7953  |
+|                   | ≥43%            | 0.168  |  -0.318  |  0.654   | 0.4859  |
+| ApoB              | \<43%           | -1.508 |  -2.908  |  -0.109  | 0.0355  |
+|                   | ≥43%            | 0.190  |  -0.787  |  1.167   | 0.6951  |
