@@ -3,42 +3,33 @@ MAC Microbiome Study
 
 ## Datasets
 
-- Data are from a 2 x 2 crossover design (AB/BA) with control/mac
-  treatments ([Jones et al., 2023](https://doi.org/10.1017/jns.2023.39))
+- Data are from a 2 x 2 crossover design (AB/BA) with control/mac treatments ([Jones et al., 2023](https://doi.org/10.1017/jns.2023.39))
 
 - Anthropometric data
 
   - Excel file `MAC Anthropometric data.xlsx`
   - Wide-format data for 35 unique participant IDs
-  - Includes **BMI** and **percent body fat** (at `visit 0`, `clinic 4`,
-    and `clinic 9`)
+  - Includes **BMI** and **percent body fat** (at `visit 0`, `clinic 4`, and `clinic 9`)
     - Also includes: weight (kg) and waist circumference (cm)
 
 - Cardiometabolic data
 
   - Excel file `LLU_MAC Study_cardiometabolic outcomes.xlsx`
   - Long-format data for 38 unique participant IDs
-    - Baseline (visit 0), Phase 1 (visit 4), Phase 2 (visit 9), and
-      clinic date
+    - Baseline (visit 0), Phase 1 (visit 4), Phase 2 (visit 9), and clinic date
   - Includes **total cholesterol**, **LDL**, **HDL**, and **ApoB**
-    - Also includes: glucose, insulin, triglycerides, VLDL, ApoA1, CRP,
-      and E-selectin
+    - Also includes: glucose, insulin, triglycerides, VLDL, ApoA1, CRP, and E-selectin
 
 - Microbiome data
 
   - Excel file `human_mac_study_abundance_data.xls`
-    - Wide-format data with 4,166 bacteria species/ASVs, including
-      **Roseburia**
-    - The first 7 columns are: `Domain`, `Phylum`, `Class`, `Order`,
-      `Family`, `Genus`, and `Species`
-    - Abundance values at visits 0, 4, and 9 are stored in the 105
-      columns that follow, named:
+    - Wide-format data with 4,166 bacteria species/ASVs, including **Roseburia**
+    - The first 7 columns are: `Domain`, `Phylum`, `Class`, `Order`, `Family`, `Genus`, and `Species`
+    - Abundance values at visits 0, 4, and 9 are stored in the 105 columns that follow, named:
       - MAC\[*ID_in_2digits*\]\_p1\[*v0/v4/v9*\]
   - CSV file `metadata_with_alpha_div_indices.csv`
-    - Long-format data for 35 unique participant IDs (3 visits x 35 =
-      105 observations)
-    - Includes other diversity indices such as Simpson, Chao1, and
-      observed (richness?)
+    - Long-format data for 35 unique participant IDs (3 visits x 35 = 105 observations)
+    - Includes other diversity indices such as Simpson, Chao1, and observed (richness?)
 
 - To extract participants’ treatment sequence, use:
 
@@ -53,9 +44,7 @@ MAC Microbiome Study
 ## Descriptive table at baseline
 
 - Descriptive statistics at baseline by sequence
-  - \[**Need to check**\] Descriptive statistics on percent body fat are
-    slightly off, compared to the original paper ([Jones et al.,
-    2023](https://doi.org/10.1017/jns.2023.39))
+  - \[**Need to check**\] Descriptive statistics on percent body fat are slightly off, compared to the original paper ([Jones et al., 2023](https://doi.org/10.1017/jns.2023.39))
 
 <table style="NAborder-bottom: 0;">
 
@@ -416,9 +405,7 @@ M
 
 <td style="padding: 0; " colspan="100%">
 
-<sup></sup> Values are mean (SD) for continuous variables and n (%) for
-categorical variables. P-values from Welch’s two-sample t-test
-(continuous) or Fisher’s exact test (categorical).
+<sup></sup> Values are mean (SD) for continuous variables and n (%) for categorical variables. P-values from Welch’s two-sample t-test (continuous) or Fisher’s exact test (categorical).
 </td>
 
 </tr>
@@ -439,25 +426,18 @@ categorical variables. P-values from Welch’s two-sample t-test
 - Profile plots of cardiometabolic measurements by sequence
   - Each line represents a participant
   - Visualize individual-level change across phases
-    - All within-person changes across phases fall within a
-      physiologically plausible range
+    - All within-person changes across phases fall within a physiologically plausible range
 
 ![](summary_files/figure-gfm/profile_plots_cardiometabolic-1.png)<!-- -->
 
-- Waterfall plots of within-person change (mac − control) across four
-  cardiometabolic outcomes
-  - Each bar represents one participant’s change score, sorted from most
-    negative to most positive
-  - Visualize the direction and magnitude of individual treatment
-    response, and whether response is consistent across the cohort or
-    driven by a subset of participants
-  - Total cholesterol, LDL, and ApoB all skew toward reduction, with
-    more and larger negative bars than positive ones
+- Waterfall plots of within-person change (mac − control) across four cardiometabolic outcomes
+  - Each bar represents one participant’s change score, sorted from most negative to most positive
+  - Visualize the direction and magnitude of individual treatment response, and whether response is consistent across the cohort or driven by a subset of participants
+  - Total cholesterol, LDL, and ApoB all skew toward reduction, with more and larger negative bars than positive ones
 
 ![](summary_files/figure-gfm/waterfall_plot_cardiometabolic-1.png)<!-- -->
 
-- Mean (SD) within-person change (mac − control) for total cholesterol,
-  LDL, HDL, and ApoB
+- Mean (SD) within-person change (mac − control) for total cholesterol, LDL, HDL, and ApoB
 
 | Outcome                   |     Mac      |   Control    | Δ (Mac-Control) |
 |:--------------------------|:------------:|:------------:|:---------------:|
@@ -474,9 +454,7 @@ categorical variables. P-values from Welch’s two-sample t-test
 ![](summary_files/figure-gfm/histogram_shannon-1.png)<!-- -->
 
 - Profile plots of the Shannon index by sequence
-  - Baseline Shannon diversity varies widely across participants (from
-    about 2 up to nearly 5), while within-person changes between Phase 1
-    and Phase 2 are generally small; most lines are close to flat
+  - Baseline Shannon diversity varies widely across participants (from about 2 up to nearly 5), while within-person changes between Phase 1 and Phase 2 are generally small; most lines are close to flat
 
 ![](summary_files/figure-gfm/profile_plot_shannon-1.png)<!-- -->
 
@@ -488,18 +466,10 @@ categorical variables. P-values from Welch’s two-sample t-test
 
 ### Bivariate relationship between the Shannon index and cardiometabolic measures
 
-- To examine the association between Δ Shannon index and Δ total
-  cholesterol, LDL, HDL, and ApoB, scatterplots were generated for each
-  pair
-  - Participants were split into two groups by the median baseline %
-    body fat (\<43% and ≥43%), and a linear trend line was overlaid for
-    each group
-- For total cholesterol, LDL, and ApoB, both adiposity groups show a
-  positive slope, whereas HDL shows little association with Δ Shannon at
-  all.
-- The slopes are similar between the two adiposity groups, suggesting
-  that baseline adiposity may not modify the association with Δ Shannon
-  index.
+- To examine the association between Δ Shannon index and Δ total cholesterol, LDL, HDL, and ApoB, scatterplots were generated for each pair
+  - Participants were split into two groups by the median baseline % body fat (\<43% and ≥43%), and a linear trend line was overlaid for each group
+- For total cholesterol, LDL, and ApoB, both adiposity groups show a positive slope, whereas HDL shows little association with Δ Shannon at all.
+- The slopes are similar between the two adiposity groups, suggesting that baseline adiposity may not modify the association with Δ Shannon index.
 
 ![](summary_files/figure-gfm/scatterplot_shannon_cardiometabolics-1.png)<!-- -->
 
@@ -512,10 +482,8 @@ categorical variables. P-values from Welch’s two-sample t-test
 ![](summary_files/figure-gfm/histogram_roseburia_2-1.png)<!-- -->
 
 - There are 11 participants with **Roseburia_2** = 0 in both phases
-- Six participants have **Roseburia_2 = 0** in only one of the two
-  phases
-  - Incidentally, in all six cases, the zero occurred under the control
-    treatment, not the macadamia treatment
+- Six participants have **Roseburia_2 = 0** in only one of the two phases
+  - Incidentally, in all six cases, the zero occurred under the control treatment, not the macadamia treatment
 
 <table class="kable_wrapper">
 
@@ -566,19 +534,13 @@ Zero in one phase
 
 - Profile plots of **Roseburia_2** by sequence
   - Shows higher **Roseburia_2** abundance under the macadamia diet
-  - The flat lines at zero correspond to the 11 participants with
-    Roseburia_2 = 0 in both phases (see table above)
-  - Note: the y-axis uses a pseudo-log scale to accommodate true zeros,
-    so visual distances near the bottom of the axis are
-    compressed/expanded non-linearly relative to distances higher up
-    - A line rising from 0 shouldn’t be read as directly comparable in
-      magnitude to, say, a line rising from 300 to 1000
+  - The flat lines at zero correspond to the 11 participants with Roseburia_2 = 0 in both phases (see table above)
+  - Note: the y-axis uses a pseudo-log scale to accommodate true zeros, so visual distances near the bottom of the axis are compressed/expanded non-linearly relative to distances higher up
+    - A line rising from 0 shouldn’t be read as directly comparable in magnitude to, say, a line rising from 300 to 1000
 
 ![](summary_files/figure-gfm/profile_plot_roseburia_2-1.png)<!-- -->
 
-- Median (IQR) of **Roseburia_2** by treatment, presented here (rather
-  than mean/SD or geometric mean) given the substantial zero-inflation
-  in this variable (see zero-count table above)
+- Median (IQR) of **Roseburia_2** by treatment, presented here (rather than mean/SD or geometric mean) given the substantial zero-inflation in this variable (see zero-count table above)
 
 | Variable    | Mac, Median (IQR) | Control, Median (IQR) | Δ (Mac-Control) |
 |:------------|:------------------|:----------------------|:----------------|
@@ -586,80 +548,37 @@ Zero in one phase
 
 ### Bivariate relationship between Roseburia_2 and cardiometabolic measures
 
-- To examine the association between Δ **Roseburia_2** and Δ total
-  cholesterol, LDL, HDL, and ApoB, scatterplots were generated for each
-  pair
-  - Participants were split into two groups by the median baseline %
-    body fat (\<43% and ≥43%), and a linear trend line was overlaid for
-    each group
-- In the scatterplots for Δ total cholesterol, LDL, and ApoB, slopes are
-  visibly different between the two adiposity groups: a stronger
-  negative association appears in the low adiposity group (\<43%), while
-  the high adiposity group (≥43%) shows a slope close to flat
+- To examine the association between Δ **Roseburia_2** and Δ total cholesterol, LDL, HDL, and ApoB, scatterplots were generated for each pair
+  - Participants were split into two groups by the median baseline % body fat (\<43% and ≥43%), and a linear trend line was overlaid for each group
+- In the scatterplots for Δ total cholesterol, LDL, and ApoB, slopes are visibly different between the two adiposity groups: a stronger negative association appears in the low adiposity group (\<43%), while the high adiposity group (≥43%) shows a slope close to flat
   - HDL shows little relationship with Δ Roseburia_2 in either group
-- These patterns suggest that baseline %body fat may modify the
-  association between Δ Roseburia_2 and these cardiometabolic outcomes
+- These patterns suggest that baseline %body fat may modify the association between Δ Roseburia_2 and these cardiometabolic outcomes
 
 ![](summary_files/figure-gfm/scatterplot_roseburia2_cardiometabolics-1.png)<!-- -->
 
 ## Modelling
 
 - Two modelling approaches were considered:
-  - Linear models with the within-subject difference (Mac − Control) of
-    cardiometabolic measures as the outcome
-    - The models include the within-subject difference of the microbiome
-      variable, the baseline value of %body fat (centered at its median
-      value), a multiplicative interaction between the two, and sequence
-    - e.g.,
-      $\Delta TC_i = \beta_0 + \beta_1(Sequence_i) + \beta_2(\Delta Microbiome_i) + \beta_3(Adiposity_i) + \beta_4(\Delta Microbiome_i \times Adiposity_i) + \epsilon_i, \ i = 1,\cdots,n$
-      - $\beta_4$ is the primary parameter of interest, testing whether
-        baseline adiposity modifies the association between
-        $\Delta Microbiome$ and $\Delta TC$
-  - Linear mixed models with cardiometabolic measures at phase $j$ as
-    the outcome
-    - The microbiome variable is decomposed into a within-subject
-      component (each phase’s value expressed as a deviation from that
-      subject’s own mean) and a between-subject component (that
-      subject’s mean level across the two phases), to avoid conflating
-      the two; the interaction is specified using the within-subject
-      component only, since that is the piece reflecting the
-      treatment-driven contrast
-    - The model also includes treatment, sequence, and a random
-      intercept for subject
-    - e.g.,
-      $TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij}, \ i = 1,\cdots,n; \ j = 1,2$
-    - where $u_i \sim N(0,\sigma^2_u)$ is a random intercept for subject
-      $i$, and $\epsilon_{ij} \sim N(0,\sigma^2_e)$ is the residual
-      error
-      - $\beta_5$ is the corresponding parameter of interest here,
-        testing the same interaction as $\beta_4$ in the delta model
-        above, using the within-subject microbiome component
-- Although the two models use different estimation methods (ordinary
-  least squares vs REML), both approaches should produce similar results
-  - With exactly two phases per subject, the within-subject microbiome
-    component in the mixed model is mathematically tied to the delta
-    microbiome measure used in the linear model (see above), so both
-    models are ultimately testing the same underlying within-subject
-    association
-  - The mixed model estimates the within-subject residual variance
-    directly from the full set of repeated measures, while the linear
-    model estimates it from the already-differenced values; this can
-    give the mixed model slightly more precision (and correspondingly
-    smaller p-values) for within-subject terms, but should not change
-    the direction or general magnitude of the estimated effects
+  - Linear models with the within-subject difference (Mac − Control) of cardiometabolic measures as the outcome
+    - The models include the within-subject difference of the microbiome variable, the baseline value of %body fat (centered at its median value), a multiplicative interaction between the two, and sequence
+    - e.g., $\Delta TC_i = \beta_0 + \beta_1(Sequence_i) + \beta_2(\Delta Microbiome_i) + \beta_3(Adiposity_i) + \beta_4(\Delta Microbiome_i \times Adiposity_i) + \epsilon_i, \ i = 1,\cdots,n$
+      - $\beta_4$ is the primary parameter of interest, testing whether baseline adiposity modifies the association between $\Delta Microbiome$ and $\Delta TC$
+  - Linear mixed models with cardiometabolic measures at phase $j$ as the outcome
+    - The microbiome variable is decomposed into a within-subject component (each phase’s value expressed as a deviation from that subject’s own mean) and a between-subject component (that subject’s mean level across the two phases), to avoid conflating the two; the interaction is specified using the within-subject component only, since that is the piece reflecting the treatment-driven contrast
+    - The model also includes treatment, sequence, and a random intercept for subject
+    - e.g., $TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij}, \ i = 1,\cdots,n; \ j = 1,2$
+    - where $u_i \sim N(0,\sigma^2_u)$ is a random intercept for subject $i$, and $\epsilon_{ij} \sim N(0,\sigma^2_e)$ is the residual error
+      - $\beta_5$ is the corresponding parameter of interest here, testing the same interaction as $\beta_4$ in the delta model above, using the within-subject microbiome component
+- Although the two models use different estimation methods (ordinary least squares vs REML), both approaches should produce similar results
+  - With exactly two phases per subject, the within-subject microbiome component in the mixed model is mathematically tied to the delta microbiome measure used in the linear model (see above), so both models are ultimately testing the same underlying within-subject association
+  - The mixed model estimates the within-subject residual variance directly from the full set of repeated measures, while the linear model estimates it from the already-differenced values; this can give the mixed model slightly more precision (and correspondingly smaller p-values) for within-subject terms, but should not change the direction or general magnitude of the estimated effects
 
 ### Linear models with Δ Shannon index
 
-- When Δ cardiometabolic outcomes were regressed on Δ Shannon index,
-  baseline %body fat (centered at its median value of 43%), their
-  interaction, and sequence, none of the interaction terms was
-  statistically significant.
-  - This is also supported by the scatterplots shown earlier of Δ
-    Shannon index against the Δ cardiometabolic measures.
-- The models were then refit, removing the interaction between Δ Shannon
-  index and %body fat
-  - Δ Shannon index showed a significant positive association with ΔTC,
-    ΔLDL, and ΔApoB
+- When Δ cardiometabolic outcomes were regressed on Δ Shannon index, baseline %body fat (centered at its median value of 43%), their interaction, and sequence, none of the interaction terms was statistically significant.
+  - This is also supported by the scatterplots shown earlier of Δ Shannon index against the Δ cardiometabolic measures.
+- The models were then refit, removing the interaction between Δ Shannon index and %body fat
+  - Δ Shannon index showed a significant positive association with ΔTC, ΔLDL, and ΔApoB
   - There was no significant association with ΔHDL
 
 | Outcome | Term | Beta | Lower CI | Upper CI | P-value |
@@ -683,15 +602,11 @@ Zero in one phase
 
 ### Linear mixed models with Shannon index
 
-- When linear mixed models were fitted instead, again none of the
-  interaction terms between the within-subject Shannon index and
-  baseline %body fat was statistically significant
+- When linear mixed models were fitted instead, again none of the interaction terms between the within-subject Shannon index and baseline %body fat was statistically significant
 
-- The models were then refit, removing the interaction. The results were
-  similar to those obtained from the linear models:
+- The models were then refit, removing the interaction. The results were similar to those obtained from the linear models:
 
-  - The within-subject Shannon index showed a significant positive
-    association with total cholesterol, LDL, and ApoB
+  - The within-subject Shannon index showed a significant positive association with total cholesterol, LDL, and ApoB
   - There was no significant association with HDL
 
 | Outcome | Term | Beta | Lower CI | Upper CI | P-value |
@@ -723,22 +638,13 @@ Zero in one phase
 
 ### Linear models with Δ Roseburia_2
 
-- Δ Roseburia_2 was rescaled to units of 100 (i.e., divided by 100)
-  prior to modelling, so that the estimated coefficients reflect the
-  change in outcome associated with a 100-unit increase in Δ
-  Roseburia_2, a more interpretable and reportable unit given that raw
-  abundance values range from the hundreds to over a thousand
+- Δ Roseburia_2 was rescaled to units of 100 (i.e., divided by 100) prior to modelling, so that the estimated coefficients reflect the change in outcome associated with a 100-unit increase in Δ Roseburia_2, a more interpretable and reportable unit given that raw abundance values range from the hundreds to over a thousand
 
-- When Δ cardiometabolic outcomes were regressed on Δ Roseburia_2,
-  baseline %body fat (centered at its median value of 43%), their
-  interaction, and sequence, the interaction term was statistically
-  significant for ΔTC and ΔLDL.
+- When Δ cardiometabolic outcomes were regressed on Δ Roseburia_2, baseline %body fat (centered at its median value of 43%), their interaction, and sequence, the interaction term was statistically significant for ΔTC and ΔLDL.
 
-  - A similar trend was observed for ΔApoB, although the interaction did
-    not reach statistical significance (p = 0.0673).
+  - A similar trend was observed for ΔApoB, although the interaction did not reach statistical significance (p = 0.0673).
   - No such interaction was observed for ΔHDL (p = 0.855).
-  - All of these results were consistent with the scatterplots shown
-    earlier of Δ Roseburia_2 against the Δ cardiometabolic measures.
+  - All of these results were consistent with the scatterplots shown earlier of Δ Roseburia_2 against the Δ cardiometabolic measures.
 
 | Outcome | Term | Beta | Lower CI | Upper CI | P-value |
 |:---|:---|:--:|:--:|:--:|:--:|
@@ -763,19 +669,10 @@ Zero in one phase
 |  | Sequence group | 0.121 | -8.511 | 8.754 | 0.9773 |
 |  | Δ Roseburia_2 × %Body fat | 0.174 | -0.013 | 0.361 | 0.0673 |
 
-- Since the interaction term was significant for ΔTC and ΔLDL, the slope
-  of Δ Roseburia_2 was estimated separately within each %body fat group
-  (\<43% and ≥43%) to characterize how the association between Δ
-  Roseburia_2 and these outcomes differs by baseline adiposity
-  - Group-specific slopes are shown for all four outcomes for
-    completeness
-- A significant negative association with Δ Roseburia_2 was observed
-  only in the lower adiposity group (\<43% body fat), for both ΔTC (β =
-  −4.527, 95% CI: −8.619 to −0.435, p = 0.0313) and ΔLDL (β = −4.803,
-  95% CI: −8.440 to −1.166, p = 0.0114).
-  - No association was evident in the higher adiposity group (≥43%) for
-    either outcome (ΔTC: β = 0.450, p = 0.7302; ΔLDL: β = −0.121, p =
-    0.9166).
+- Since the interaction term was significant for ΔTC and ΔLDL, the slope of Δ Roseburia_2 was estimated separately within each %body fat group (\<43% and ≥43%) to characterize how the association between Δ Roseburia_2 and these outcomes differs by baseline adiposity
+  - Group-specific slopes are shown for all four outcomes for completeness
+- A significant negative association with Δ Roseburia_2 was observed only in the lower adiposity group (\<43% body fat), for both ΔTC (β = −4.527, 95% CI: −8.619 to −0.435, p = 0.0313) and ΔLDL (β = −4.803, 95% CI: −8.440 to −1.166, p = 0.0114).
+  - No association was evident in the higher adiposity group (≥43%) for either outcome (ΔTC: β = 0.450, p = 0.7302; ΔLDL: β = −0.121, p = 0.9166).
 
 | Outcome           | %Body fat group |  Beta  | Lower CI | Upper CI | P-value |
 |:------------------|:----------------|:------:|:--------:|:--------:|:-------:|
@@ -790,11 +687,8 @@ Zero in one phase
 
 ### Linear mixed models with Roseburia_2
 
-- When linear mixed models were fitted instead, the interaction term
-  between the within-subject **Roseburia_2** and baseline %body fat was
-  statistically significant for TC, LDL, and ApoB
-  - Note that, in contrast to the linear model above, the interaction
-    became significant for ApoB (p = 0.0133)
+- When linear mixed models were fitted instead, the interaction term between the within-subject **Roseburia_2** and baseline %body fat was statistically significant for TC, LDL, and ApoB
+  - Note that, in contrast to the linear model above, the interaction became significant for ApoB (p = 0.0133)
 
 | Outcome | Term | Beta | Lower CI | Upper CI | P-value |
 |:---|:---|:--:|:--:|:--:|:--:|
@@ -827,15 +721,11 @@ Zero in one phase
 |  | Roseburia_2 (between-subject, per 100 units) | -0.528 | -2.316 | 1.260 | 0.5517 |
 |  | Roseburia_2 (within) × %Body fat | **0.178** | 0.040 | 0.317 | **0.0133** |
 
-- Similarly, the slope of the within-subject **Roseburia_2** term was
-  estimated separately within each %body fat group (\<43% and ≥43%)
+- Similarly, the slope of the within-subject **Roseburia_2** term was estimated separately within each %body fat group (\<43% and ≥43%)
 
-- A significant negative association with the within-subject
-  **Roseburia_2** term was observed only in the lower adiposity group
-  (\<43% body fat), for TC, LDL, and ApoB
+- A significant negative association with the within-subject **Roseburia_2** term was observed only in the lower adiposity group (\<43% body fat), for TC, LDL, and ApoB
 
-  - No association was evident in the higher adiposity group (≥43%) for
-    any of the three outcomes
+  - No association was evident in the higher adiposity group (≥43%) for any of the three outcomes
 
 | Outcome           | %Body fat group |  Beta  | Lower CI | Upper CI | P-value |
 |:------------------|:----------------|:------:|:--------:|:--------:|:-------:|

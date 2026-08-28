@@ -1,6 +1,8 @@
 ---
 title: "MAC Microbiome Study"
-output: github_document
+output: 
+  github_document:
+    pandoc_args: ["--wrap=preserve"]
 always_allow_html: true
 ---
 
