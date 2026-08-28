@@ -565,13 +565,16 @@ Zero in one phase
       - $\beta_4$ is the primary parameter of interest, testing whether baseline adiposity modifies the association between $\Delta Microbiome$ and $\Delta TC$
   - Linear mixed models with cardiometabolic measures at phase $j$ as the outcome
     - The microbiome variable is decomposed into a within-subject component (each phase’s value expressed as a deviation from that subject’s own mean) and a between-subject component (that subject’s mean level across the two phases), to avoid conflating the two; the interaction is specified using the within-subject component only, since that is the piece reflecting the treatment-driven contrast
+
     - The model also includes treatment, sequence, and a random intercept for subject
+
     - e.g.,
 
-$$TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij}, \ i = 1,\cdots,n; \ j = 1,2$$
-\* where $u_i \sim N(0,\sigma^2_u)$ is a random intercept for subject $i$, and $\epsilon_{ij} \sim N(0,\sigma^2_e)$ is the residual error
-\* $\beta_5$ is the corresponding parameter of interest here, testing the same interaction as $\beta_4$ in the delta model above, using the within-subject microbiome component
+      $$TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij}, \ i = 1,\cdots,n; \ j = 1,2$$
 
+    - where $u_i \sim N(0,\sigma^2_u)$ is a random intercept for subject $i$, and $\epsilon_{ij} \sim N(0,\sigma^2_e)$ is the residual error
+
+      - $\beta_5$ is the corresponding parameter of interest here, testing the same interaction as $\beta_4$ in the delta model above, using the within-subject microbiome component
 - Although the two models use different estimation methods (ordinary least squares vs REML), both approaches should produce similar results
   - With exactly two phases per subject, the within-subject microbiome component in the mixed model is mathematically tied to the delta microbiome measure used in the linear model (see above), so both models are ultimately testing the same underlying within-subject association
   - The mixed model estimates the within-subject residual variance directly from the full set of repeated measures, while the linear model estimates it from the already-differenced values; this can give the mixed model slightly more precision (and correspondingly smaller p-values) for within-subject terms, but should not change the direction or general magnitude of the estimated effects

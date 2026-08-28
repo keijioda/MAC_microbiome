@@ -697,8 +697,9 @@ df_delta %>%
     * The model also includes treatment, sequence, and a random intercept for subject
     * e.g., 
     
-$$TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij}, \ i = 1,\cdots,n; \ j = 1,2
-$$
+      $$
+      TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij}, \ i = 1,\cdots,n; \ j = 1,2
+      $$
     * where $u_i \sim N(0,\sigma^2_u)$ is a random intercept for subject $i$, and $\epsilon_{ij} \sim N(0,\sigma^2_e)$ is the residual error
       * $\beta_5$ is the corresponding parameter of interest here, testing the same interaction as $\beta_4$ in the delta model above, using the within-subject microbiome component
 
