@@ -2,7 +2,6 @@
 title: "MAC Microbiome Study"
 output: 
   github_document:
-    pandoc_args: ["--webtex"]
 always_allow_html: true
 ---
 
@@ -24,7 +23,8 @@ pacs <- c(
   "kableExtra",
   "lme4",
   "lmerTest",
-  "broom.mixed"
+  "broom.mixed",
+  "influence.ME"
 )
 
 sapply(pacs, require, character.only = TRUE)
@@ -695,7 +695,7 @@ df_delta %>%
   * Linear mixed models with cardiometabolic measures at phase $j$ as the outcome
     * The microbiome variable is decomposed into a within-subject component (each phase's value expressed as a deviation from that subject's own mean) and a between-subject component (that subject's mean level across the two phases), to avoid conflating the two; the interaction is specified using the within-subject component only, since that is the piece reflecting the treatment-driven contrast
     * The model also includes treatment, sequence, and a random intercept for subject
-    * e.g., $TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij},$ $\ i = 1,\cdots,n; \ j = 1,2$
+    * e.g., ![](https://latex.codecogs.com/svg.latex?TC_%7Bij%7D%20%3D%20%5Cbeta_0%20%2B%20%5Cbeta_1%28Sequence_i%29%20%2B%20%5Cbeta_2%28Treatment_%7Bij%7D%29%20%2B%20%5Cbeta_3%28Microbiome%5E%7Bwithin%7D_%7Bij%7D%29%20%2B%20%5Cbeta_4%28Adiposity_i%29%20%2B%20%5Cbeta_5%28Microbiome%5E%7Bwithin%7D_%7Bij%7D%20%5Ctimes%20Adiposity_i%29%20%2B%20%5Cbeta_6%28Microbiome%5E%7Bbetween%7D_i%29%20%2B%20u_i%20%2B%20%5Cepsilon_%7Bij%7D%2C%20%5C%20i%20%3D%201%2C%5Ccdots%2Cn%3B%20%5C%20j%20%3D%201%2C2)
     * where $u_i \sim N(0,\sigma^2_u)$ is a random intercept for subject $i$, and $\epsilon_{ij} \sim N(0,\sigma^2_e)$ is the residual error
       * $\beta_5$ is the corresponding parameter of interest here, testing the same interaction as $\beta_4$ in the delta model above, using the within-subject microbiome component
 
@@ -1071,5 +1071,258 @@ slopes_tbl <- slopes_mixed %>%
 
 slopes_tbl %>% 
   kable(align = c("l", "l", "c", "c", "c", "c"))
+
+```
+
+## Influence diagnostics
+
+* To evaluate whether the Roseburia_2 (within-subject) × %body fat interaction was disproportionately driven by any individual participant, we computed DFBETA for the interaction term specifically, using the linear mixed models described above.
+  * DFBETA for the interaction term measures how much the estimated Roseburia_2 × %body fat coefficient shifts when each participant is excluded, one at a time. 
+  * Participants exceeding the conventional $\lvert DFBETA \rvert > 2/\sqrt{n}$ threshold were flagged as influential and the model was re-estimated without them to check whether the interaction held up.
+
+* The plot below shows DFBETA for the interaction term by participant ID for the TC model. None of the participants exceeded the threshold.
+
+```{r influence_TC}
+
+# Re-run mixed models for TC, LDL and ApoB
+m_chol <- lmer(chol ~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id), data = df_long)
+m_ldl  <- lmer(ldl  ~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id), data = df_long)
+m_apob <- lmer(apob ~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id), data = df_long)
+
+# Function to plot DFBETA
+plot_influence <- function(infl,
+                           interaction_term = "I(roseburia_2_within/100):I(pct_fat_b - 43)",
+                           outcome_label) {
+  
+  cooks_df <- as.data.frame(cooks.distance(infl)) %>%
+    rownames_to_column("id") %>%
+    rename(cooks_d = 2)
+  
+  dfbetas_mat <- dfbetas(infl)
+  if (!interaction_term %in% colnames(dfbetas_mat)) {
+    stop(
+      "interaction_term '", interaction_term, "' not found in dfbetas(infl).\n",
+      "Available columns: ", paste(colnames(dfbetas_mat), collapse = ", ")
+    )
+  }
+  dfbetas_df <- as.data.frame(dfbetas_mat) %>%
+    rownames_to_column("id") %>%
+    select(id, dfbetas_intx = all_of(interaction_term))
+  
+  n <- nrow(cooks_df)
+  cook_threshold    <- 4 / n
+  dfbetas_threshold <- 2 / sqrt(n)
+  
+  diag_df <- cooks_df %>%
+    left_join(dfbetas_df, by = "id") %>%
+    mutate(
+      id           = factor(id, levels = as.character(sort(as.integer(id)))),
+      flag_cooks   = cooks_d > cook_threshold,
+      flag_dfbetas = abs(dfbetas_intx) > dfbetas_threshold
+    )
+  
+  p_cooks <- ggplot(diag_df, aes(x = id, y = cooks_d, color = flag_cooks)) +
+    geom_segment(aes(x = id, xend = id, y = 0, yend = cooks_d), linewidth = 1) +
+    geom_point(size = 3) +
+    geom_hline(yintercept = cook_threshold, linetype = "dashed", color = "red") +
+    scale_color_manual(values = c(`TRUE` = "firebrick", `FALSE` = "grey40"), guide = "none") +
+    labs(
+      x     = "Participant ID",
+      y     = "Cook's Distance",
+      title = paste0("Influence diagnostics: Cook's Distance (", outcome_label, " mixed model)")
+    ) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+  
+  p_dfbetas <- ggplot(diag_df, aes(x = id, y = dfbetas_intx, color = flag_dfbetas)) +
+    geom_segment(aes(x = id, xend = id, y = 0, yend = dfbetas_intx), linewidth = 1) +
+    geom_point(size = 3) +
+    geom_hline(yintercept = c(-dfbetas_threshold, dfbetas_threshold), linetype = "dashed", color = "red") +
+    geom_hline(yintercept = 0, color = "grey70") +
+    scale_color_manual(values = c(`TRUE` = "firebrick", `FALSE` = "grey40"), guide = "none") +
+    labs(
+      x     = "Participant ID",
+      y     = "DFBETAS: Roseburia_2 (within) \u00d7 %Body fat",
+      title = paste0("Influence diagnostics: DFBETAS for interaction term (", outcome_label, " mixed model)")
+    ) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+  
+  # print(p_cooks)
+  print(p_dfbetas)
+  
+  invisible(list(data = diag_df, cooks_plot = p_cooks, dfbetas_plot = p_dfbetas))
+}
+
+infl_chol <- influence(m_chol, group = "id")
+infl_ldl  <- influence(m_ldl,  group = "id")
+infl_apob <- influence(m_apob, group = "id")
+
+res_chol <- plot_influence(infl_chol, outcome_label = "TC")
+
+```
+
+* For LDL, participant 6 exceeded the threshold and was flagged as influential. This participant showed the second-largest decrease in both TC and LDL, and the third-largest increase in **Roseburia_2**, during the mac treatment.
+
+```{r influence_LDL}
+
+res_ldl  <- plot_influence(infl_ldl,  outcome_label = "LDL")
+
+df %>%
+  filter(visit != 0) %>% 
+  filter(id == 6) %>% 
+  select(id, group_lab, phase, treatment, pct_fat, chol, ldl, hdl, apob, shannon, roseburia_2) %>% 
+  knitr::kable()
+
+```
+
+* For ApoB, participant 5 exceeded the threshold and was flagged as influential. This participant showed the largest decrease in all cardiometabolic measures, and the sixth-largest increase in **Roseburia_2**, during the mac treatment.
+
+```{r influence_ApoB}
+
+res_apob <- plot_influence(infl_apob, outcome_label = "ApoB")
+
+df %>%
+  filter(visit != 0) %>% 
+  filter(id == 5) %>% 
+  select(id, group_lab, phase, treatment, pct_fat, chol, ldl, hdl, apob, shannon, roseburia_2) %>% 
+  knitr::kable()
+
+```
+
+* Sensitivity analyses were conducted by excluding the flagged participant from each model: participant 6 for LDL and participant 5 for ApoB.
+
+* After removing the participant 6 and refitting the LDL model, the interaction term remained significant (p = 0.0333)
+
+```{r influence_sensitivity_ldl}
+
+# Define outcomes
+outcomes   <- c("chol", "ldl", "hdl", "apob")
+
+# Removing ID = 6 
+lmer_fits_intx_sens_6 <- list()
+for (oc in outcomes) {
+  frm <- as.formula(paste(oc, "~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id)"))
+  lmer_fits_intx_sens_6[[oc]] <- eval(bquote(
+    lmer(.(frm), data = df_long, subset = !(id %in% c(6)))
+  ))
+}
+
+# Make it to a kable
+coef_tbl_mixed_sens6_ldl <- lmer_fits_intx_sens_6$ldl %>% 
+  tidy(effects = "fixed", conf.int = TRUE)
+
+term_labels <- c(
+  "(Intercept)"                                 = "Intercept",
+  "treatmentmac"                                = "Treatment (Mac vs. Control)",
+  "group"                                       = "Sequence group",
+  "I(roseburia_2_within/100)"                   = "Roseburia_2 (within-subject, per 100 units)",
+  "I(pct_fat_b - 43)"                           = "%Body fat (centered)",
+  "I(roseburia_2_between/100)"                  = "Roseburia_2 (between-subject, per 100 units)",
+  "I(roseburia_2_within/100):I(pct_fat_b - 43)" = "Roseburia_2 (within) \u00d7 %Body fat"
+)
+
+coef_tbl_mixed_sens6_ldl %>% 
+  mutate(
+    sig  = p.value < 0.05 & term != "(Intercept)",
+    term = factor(term, levels = names(term_labels), labels = term_labels)
+  ) %>% 
+  transmute(
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  kable(align = c("l", "c", "c", "c", "c"))
+
+```
+
+* After removing the participant 5 and refitting the ApoB model, the interaction term remained significant (p = 0.0194)
+
+```{r influence_sensitivity_apob}
+
+# Run linear mixed model with %fat and its interaction with Roseburia_2
+# Removing ID = 5
+lmer_fits_intx_sens_5 <- list()
+for (oc in outcomes) {
+  frm <- as.formula(paste(oc, "~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id)"))
+  lmer_fits_intx_sens_5[[oc]] <- eval(bquote(
+    lmer(.(frm), data = df_long, subset = !(id %in% c(5)))
+  ))
+}
+
+# Make it to a kable
+coef_tbl_mixed_sens5_apob <- lmer_fits_intx_sens_5$apob %>% 
+  tidy(effects = "fixed", conf.int = TRUE)
+
+term_labels <- c(
+  "(Intercept)"                                 = "Intercept",
+  "treatmentmac"                                = "Treatment (Mac vs. Control)",
+  "group"                                       = "Sequence group",
+  "I(roseburia_2_within/100)"                   = "Roseburia_2 (within-subject, per 100 units)",
+  "I(pct_fat_b - 43)"                           = "%Body fat (centered)",
+  "I(roseburia_2_between/100)"                  = "Roseburia_2 (between-subject, per 100 units)",
+  "I(roseburia_2_within/100):I(pct_fat_b - 43)" = "Roseburia_2 (within) \u00d7 %Body fat"
+)
+
+coef_tbl_mixed_sens5_apob %>% 
+  mutate(
+    sig  = p.value < 0.05 & term != "(Intercept)",
+    term = factor(term, levels = names(term_labels), labels = term_labels)
+  ) %>% 
+  transmute(
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  kable(align = c("l", "c", "c", "c", "c"))
+
+```
+
+## Estimated diet effects for Roseburia ASVs (MaAsLin3 output)
+
+* Diet effect estimates were read into R from the MaAsLin3 model output
+  * file: `maaslin3_crossover_output_both_models_small_random_effect\adjusted_main_allvars_n-tss_t-log_p-0.1_q-0.25\all_results.tsv`
+  
+* Filtering for `roseburia` (case-insensitive) returned only 5 Roseburia ASVs. 95% confidence intervals were calculated from the point estimates and their standard errors, and are plotted below
+  * All five Roseburia ASVs point the same direction (positive — higher under the mac diet)
+  * Individual p-values were significant for Roseburia_2 and Roseburia hominis; however, only Roseburia_2 remained significant after FDR correction
+
+```{r plot_from_MaAsLin3, warning=FALSE}
+
+# Read MasAsLin3 output
+path <- "data/maaslin3_crossover_output_both_models_small_random_effect/adjusted_main_allvars_n-tss_t-log_p-0.1_q-0.25/"
+out <- read_tsv(paste0(path, "all_results.tsv"))
+
+# Look for diet effect of Roseburia
+roseburia_diet <- out %>% 
+  filter(metadata == "Diet", model == "abundance") %>% 
+  filter(str_detect(feature, regex("roseburia", ignore_case = TRUE)))
+
+# Calculate 95% confidence intervals
+roseburia_plot_df <- roseburia_diet %>% 
+  mutate(
+    conf_low  = coef - 1.96 * stderr,
+    conf_high = coef + 1.96 * stderr,
+    is_target = feature == "Roseburia_2",
+    feature   = fct_reorder(feature, coef)
+  )
+
+# Forest plot of beta for Roseburia
+ggplot(roseburia_plot_df, aes(x = coef, y = feature, color = is_target)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_errorbarh(aes(xmin = conf_low, xmax = conf_high), height = 0.15) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c(`TRUE` = "firebrick", `FALSE` = "grey40"), guide = "none") +
+  labs(
+    x = "Diet effect (Mac vs. Control), coefficient \u00b1 95% CI",
+    y = NULL,
+    title = "Diet effect across Roseburia-assigned ASVs",
+    subtitle = "Highlighted: Roseburia_2 (FDR-significant)"
+  ) +
+  theme_bw(base_size = 12)
 
 ```

@@ -17,6 +17,7 @@ pacs <- c(
   "kableExtra",
   "lme4",
   "lmerTest",
+  "influence.ME",
   "broom.mixed"
 )
 
@@ -143,6 +144,8 @@ adip_long <- adip %>%
   mutate(visit = as.numeric(visit)) %>%
   arrange(id, visit)
 
+adip %>% select(visit_0_in_body_percent_body_fat) %>% 
+  pull(visit_0_in_body_percent_body_fat) %>% summary()
 
 # Read microbiome data ----------------------------------------------------
 
@@ -1078,4 +1081,260 @@ slopes_tbl <- slopes_mixed %>%
 
 slopes_tbl %>% 
   kable(align = c("l", "l", "c", "c", "c", "c"))
+
+
+# Influlence statistics ---------------------------------------------------
+
+# Re-run mixed models for TC, LDL and ApoB
+m_chol <- lmer(chol ~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id), data = df_long)
+m_ldl  <- lmer(ldl  ~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id), data = df_long)
+m_apob <- lmer(apob ~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id), data = df_long)
+
+infl_chol <- influence(m_chol, group = "id")
+cooks.distance(infl_chol)
+dfbetas(infl_chol)
+
+plot(infl_chol, which = "cook")
+plot(infl_chol, which = "dfbetas", parameters = "I(roseburia_2_within/100):I(pct_fat_b - 43)")
+
+# Cook's distince
+cooks_df <- as.data.frame(cooks.distance(infl_chol)) %>%
+  rownames_to_column("id") %>%
+  rename(cooks_d = 2)
+
+# DFBETA for the interaction term
+dfbetas_mat <- dfbetas(infl_chol)
+
+dfbetas_df <- as.data.frame(dfbetas_mat) %>%
+  rownames_to_column("id") %>%
+  select(id, dfbetas_intx = `I(roseburia_2_within/100):I(pct_fat_b - 43)`)
+
+# Combine Cook's D and DFBETA and apply thresholds
+n <- nrow(cooks_df)
+cook_threshold    <- 4 / n
+dfbetas_threshold <- 2 / sqrt(n)
+
+diag_tbl <- cooks_df %>%
+  left_join(dfbetas_df, by = "id") %>%
+  mutate(
+    id           = factor(id, levels = as.character(sort(as.integer(id)))),
+    cooks_d      = round(cooks_d, 3),
+    dfbetas_int  = round(dfbetas_intx, 3),
+    flag_cooks   = cooks_d > cook_threshold,
+    flag_dfbetas = abs(dfbetas_int) > dfbetas_threshold,
+    flagged      = flag_cooks | flag_dfbetas
+  ) %>%
+  arrange(desc(cooks_d))
+
+print(diag_tbl)
+summary(diag_tbl$dfbetas_intx)
+
+# Show flagged IDs
+diag_tbl %>% filter(flagged)
+
+
+# --- Cook's distance plot -----------------------------------------------------
+ggplot(diag_tbl, aes(x = id, y = cooks_d, fill = flag_cooks)) +
+  geom_col() +
+  geom_hline(yintercept = cook_threshold, linetype = "dashed", color = "red") +
+  scale_fill_manual(values = c(`TRUE` = "firebrick", `FALSE` = "grey40"), guide = "none") +
+  labs(
+    x     = "Participant ID",
+    y     = "Cook's Distance",
+    title = "Influence diagnostics: Cook's Distance (TC mixed model)"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+# --- DFBETAS plot for the Roseburia_2 (within) x %body fat interaction ------
+diag_tbl %>% 
+  ggplot(aes(x = id, y = dfbetas_intx, fill = flag_dfbetas)) +
+  geom_col() +
+  geom_hline(yintercept = c(-dfbetas_threshold, dfbetas_threshold), linetype = "dashed", color = "red") +
+  scale_fill_manual(values = c(`TRUE` = "firebrick", `FALSE` = "grey40"), guide = "none") +
+  labs(
+    x     = "Participant ID",
+    y     = "DFBETAS: Roseburia_2 (within) \u00d7 %Body fat",
+    title = "Influence diagnostics: DFBETAS for the interaction term (TC mixed model)"
+  ) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+# Make it into a function
+plot_influence <- function(infl,
+                           interaction_term = "I(roseburia_2_within/100):I(pct_fat_b - 43)",
+                           outcome_label) {
+  
+  cooks_df <- as.data.frame(cooks.distance(infl)) %>%
+    rownames_to_column("id") %>%
+    rename(cooks_d = 2)
+  
+  dfbetas_mat <- dfbetas(infl)
+  if (!interaction_term %in% colnames(dfbetas_mat)) {
+    stop(
+      "interaction_term '", interaction_term, "' not found in dfbetas(infl).\n",
+      "Available columns: ", paste(colnames(dfbetas_mat), collapse = ", ")
+    )
+  }
+  dfbetas_df <- as.data.frame(dfbetas_mat) %>%
+    rownames_to_column("id") %>%
+    select(id, dfbetas_intx = all_of(interaction_term))
+  
+  n <- nrow(cooks_df)
+  cook_threshold    <- 4 / n
+  dfbetas_threshold <- 2 / sqrt(n)
+  
+  diag_df <- cooks_df %>%
+    left_join(dfbetas_df, by = "id") %>%
+    mutate(
+      id           = factor(id, levels = as.character(sort(as.integer(id)))),
+      flag_cooks   = cooks_d > cook_threshold,
+      flag_dfbetas = abs(dfbetas_intx) > dfbetas_threshold
+    )
+  
+  p_cooks <- ggplot(diag_df, aes(x = id, y = cooks_d, color = flag_cooks)) +
+    geom_segment(aes(x = id, xend = id, y = 0, yend = cooks_d), linewidth = 1) +
+    geom_point(size = 3) +
+    geom_hline(yintercept = cook_threshold, linetype = "dashed", color = "red") +
+    scale_color_manual(values = c(`TRUE` = "firebrick", `FALSE` = "grey40"), guide = "none") +
+    labs(
+      x     = "Participant ID",
+      y     = "Cook's Distance",
+      title = paste0("Influence diagnostics: Cook's Distance (", outcome_label, " mixed model)")
+    ) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+  
+  p_dfbetas <- ggplot(diag_df, aes(x = id, y = dfbetas_intx, color = flag_dfbetas)) +
+    geom_segment(aes(x = id, xend = id, y = 0, yend = dfbetas_intx), linewidth = 1) +
+    geom_point(size = 3) +
+    geom_hline(yintercept = c(-dfbetas_threshold, dfbetas_threshold), linetype = "dashed", color = "red") +
+    geom_hline(yintercept = 0, color = "grey70") +
+    scale_color_manual(values = c(`TRUE` = "firebrick", `FALSE` = "grey40"), guide = "none") +
+    labs(
+      x     = "Participant ID",
+      y     = "DFBETAS: Roseburia_2 (within) \u00d7 %Body fat",
+      title = paste0("Influence diagnostics: DFBETAS for interaction term (", outcome_label, " mixed model)")
+    ) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+  
+  # print(p_cooks)
+  print(p_dfbetas)
+  
+  invisible(list(data = diag_df, cooks_plot = p_cooks, dfbetas_plot = p_dfbetas))
+}
+
+infl_chol <- influence(m_chol, group = "id")
+infl_ldl  <- influence(m_ldl,  group = "id")
+infl_apob <- influence(m_apob, group = "id")
+
+res_chol <- plot_influence(infl_chol, outcome_label = "TC")
+res_ldl  <- plot_influence(infl_ldl,  outcome_label = "LDL")
+res_apob <- plot_influence(infl_apob, outcome_label = "ApoB")
+
+# ID = 5; Control-mac group
+# Largest decreases in TC, LDL, HDL, and ApoB
+# 6th largest increase in Roseburia_2
+df %>% 
+  filter(id == 5) %>% 
+  select(id, group_lab, phase, treatment, pct_fat, chol, ldl, hdl, apob, shannon, roseburia_2)
+
+df_delta %>% 
+  filter(id == 5) %>% 
+  select(id, gender, group, group_lab, pct_fat_b, delta_chol, delta_ldl, delta_hdl, delta_apob, delta_shannon, delta_roseburia_2)
+
+# ID = 6; mac-control group; 
+# Second largest decreases in TC and LDL
+# Third largest increases in Roseburia_2
+df %>%
+  filter(visit != 0) %>% 
+  filter(id == 6) %>% 
+  select(id, group_lab, phase, treatment, pct_fat, chol, ldl, hdl, apob, shannon, roseburia_2)
+
+df_delta %>% 
+  filter(id == 6) %>% 
+  select(id, gender, group, group_lab, pct_fat_b, delta_chol, delta_ldl, delta_hdl, delta_apob, delta_shannon, delta_roseburia_2)
+
+df_delta %>% 
+  select(delta_chol, delta_ldl, delta_hdl, delta_apob, delta_shannon, delta_roseburia_2) %>% 
+  summary()
+
+df_delta %>% 
+  select(id, delta_chol, delta_ldl, delta_hdl, delta_apob, delta_shannon, delta_roseburia_2) %>% 
+  arrange(-delta_roseburia_2) 
+
+# Sensitivity analysis excluding influential obs --------------------------
+
+# Mixed-model equivalent of elta lm() approach
+# Define outcomes
+outcomes   <- c("chol", "ldl", "hdl", "apob")
+
+# Run linear mixed model with %fat and its interaction with Roseburia_2
+# Removing ID = 5
+lmer_fits_intx_sens_5 <- list()
+for (oc in outcomes) {
+  frm <- as.formula(paste(oc, "~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id)"))
+  lmer_fits_intx_sens_5[[oc]] <- eval(bquote(
+    lmer(.(frm), data = df_long, subset = !(id %in% c(5)))
+  ))
+}
+names(lmer_fits_intx_sens_5) <- outcomes
+
+lmer_fits_intx_sens_5[["apob"]] %>% summary()
+
+# Make it to a kable
+term_labels <- c(
+  "(Intercept)"                                 = "Intercept",
+  "treatmentmac"                                = "Treatment (Mac vs. Control)",
+  "group"                                       = "Sequence group",
+  "I(roseburia_2_within/100)"                   = "Roseburia_2 (within-subject, per 100 units)",
+  "I(pct_fat_b - 43)"                           = "%Body fat (centered)",
+  "I(roseburia_2_between/100)"                  = "Roseburia_2 (between-subject, per 100 units)",
+  "I(roseburia_2_within/100):I(pct_fat_b - 43)" = "Roseburia_2 (within) \u00d7 %Body fat"
+)
+
+coef_tbl_mixed_sens5_apob <- lmer_fits_intx_sens_5$apob %>% 
+  tidy(effects = "fixed", conf.int = TRUE)
+
+coef_tbl_mixed_sens5_apob %>% 
+  mutate(
+    sig  = p.value < 0.05 & term != "(Intercept)",
+    term = factor(term, levels = names(term_labels), labels = term_labels)
+  ) %>% 
+  transmute(
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  kable(align = c("l", "c", "c", "c", "c"))
+
+# Removing ID = 6 
+lmer_fits_intx_sens_6 <- list()
+for (oc in outcomes) {
+  frm <- as.formula(paste(oc, "~ treatment + group + I(roseburia_2_within / 100) * I(pct_fat_b - 43) + I(roseburia_2_between / 100) + (1 | id)"))
+  lmer_fits_intx_sens_6[[oc]] <- eval(bquote(
+    lmer(.(frm), data = df_long, subset = !(id %in% c(6)))
+  ))
+}
+
+# Make it to a kable
+coef_tbl_mixed_sens6_ldl <- lmer_fits_intx_sens_6$ldl %>% 
+  tidy(effects = "fixed", conf.int = TRUE)
+
+coef_tbl_mixed_sens6_ldl %>% 
+  mutate(
+    sig  = p.value < 0.05 & term != "(Intercept)",
+    term = factor(term, levels = names(term_labels), labels = term_labels)
+  ) %>% 
+  transmute(
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  kable(align = c("l", "c", "c", "c", "c"))
 

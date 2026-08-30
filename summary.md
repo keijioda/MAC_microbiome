@@ -611,15 +611,12 @@ Zero in one phase
       variable, the baseline value of %body fat (centered at its median
       value), a multiplicative interaction between the two, and sequence
     - e.g.,
-      ![\Delta TC_i = \beta_0 + \beta_1(Sequence_i) + \beta_2(\Delta Microbiome_i) + \beta_3(Adiposity_i) + \beta_4(\Delta Microbiome_i \times Adiposity_i) + \epsilon_i, \\i = 1,\cdots,n](https://latex.codecogs.com/png.latex?%5CDelta%20TC_i%20%3D%20%5Cbeta_0%20%2B%20%5Cbeta_1%28Sequence_i%29%20%2B%20%5Cbeta_2%28%5CDelta%20Microbiome_i%29%20%2B%20%5Cbeta_3%28Adiposity_i%29%20%2B%20%5Cbeta_4%28%5CDelta%20Microbiome_i%20%5Ctimes%20Adiposity_i%29%20%2B%20%5Cepsilon_i%2C%20%5C%20i%20%3D%201%2C%5Ccdots%2Cn "\Delta TC_i = \beta_0 + \beta_1(Sequence_i) + \beta_2(\Delta Microbiome_i) + \beta_3(Adiposity_i) + \beta_4(\Delta Microbiome_i \times Adiposity_i) + \epsilon_i, \ i = 1,\cdots,n")
-      - ![\beta_4](https://latex.codecogs.com/png.latex?%5Cbeta_4 "\beta_4")
-        is the primary parameter of interest, testing whether baseline
-        adiposity modifies the association between
-        ![\Delta Microbiome](https://latex.codecogs.com/png.latex?%5CDelta%20Microbiome "\Delta Microbiome")
-        and
-        ![\Delta TC](https://latex.codecogs.com/png.latex?%5CDelta%20TC "\Delta TC")
-  - Linear mixed models with cardiometabolic measures at phase
-    ![j](https://latex.codecogs.com/png.latex?j "j") as the outcome
+      $\Delta TC_i = \beta_0 + \beta_1(Sequence_i) + \beta_2(\Delta Microbiome_i) + \beta_3(Adiposity_i) + \beta_4(\Delta Microbiome_i \times Adiposity_i) + \epsilon_i, \ i = 1,\cdots,n$
+      - $\beta_4$ is the primary parameter of interest, testing whether
+        baseline adiposity modifies the association between
+        $\Delta Microbiome$ and $\Delta TC$
+  - Linear mixed models with cardiometabolic measures at phase $j$ as
+    the outcome
     - The microbiome variable is decomposed into a within-subject
       component (each phase’s value expressed as a deviation from that
       subject’s own mean) and a between-subject component (that
@@ -630,20 +627,13 @@ Zero in one phase
     - The model also includes treatment, sequence, and a random
       intercept for subject
     - e.g.,
-      ![TC\_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment\_{ij}) + \beta_3(Microbiome^{within}\_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}\_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}\_i) + u_i + \epsilon\_{ij},](https://latex.codecogs.com/png.latex?TC_%7Bij%7D%20%3D%20%5Cbeta_0%20%2B%20%5Cbeta_1%28Sequence_i%29%20%2B%20%5Cbeta_2%28Treatment_%7Bij%7D%29%20%2B%20%5Cbeta_3%28Microbiome%5E%7Bwithin%7D_%7Bij%7D%29%20%2B%20%5Cbeta_4%28Adiposity_i%29%20%2B%20%5Cbeta_5%28Microbiome%5E%7Bwithin%7D_%7Bij%7D%20%5Ctimes%20Adiposity_i%29%20%2B%20%5Cbeta_6%28Microbiome%5E%7Bbetween%7D_i%29%20%2B%20u_i%20%2B%20%5Cepsilon_%7Bij%7D%2C "TC_{ij} = \beta_0 + \beta_1(Sequence_i) + \beta_2(Treatment_{ij}) + \beta_3(Microbiome^{within}_{ij}) + \beta_4(Adiposity_i) + \beta_5(Microbiome^{within}_{ij} \times Adiposity_i) + \beta_6(Microbiome^{between}_i) + u_i + \epsilon_{ij},")
-      ![\\i = 1,\cdots,n; \\j = 1,2](https://latex.codecogs.com/png.latex?%5C%20i%20%3D%201%2C%5Ccdots%2Cn%3B%20%5C%20j%20%3D%201%2C2 "\ i = 1,\cdots,n; \ j = 1,2")
-    - where
-      ![u_i \sim N(0,\sigma^2_u)](https://latex.codecogs.com/png.latex?u_i%20%5Csim%20N%280%2C%5Csigma%5E2_u%29 "u_i \sim N(0,\sigma^2_u)")
-      is a random intercept for subject
-      ![i](https://latex.codecogs.com/png.latex?i "i"), and
-      ![\epsilon\_{ij} \sim N(0,\sigma^2_e)](https://latex.codecogs.com/png.latex?%5Cepsilon_%7Bij%7D%20%5Csim%20N%280%2C%5Csigma%5E2_e%29 "\epsilon_{ij} \sim N(0,\sigma^2_e)")
-      is the residual error
-      - ![\beta_5](https://latex.codecogs.com/png.latex?%5Cbeta_5 "\beta_5")
-        is the corresponding parameter of interest here, testing the
-        same interaction as
-        ![\beta_4](https://latex.codecogs.com/png.latex?%5Cbeta_4 "\beta_4")
-        in the delta model above, using the within-subject microbiome
-        component
+      ![](https://latex.codecogs.com/svg.latex?TC_%7Bij%7D%20%3D%20%5Cbeta_0%20%2B%20%5Cbeta_1%28Sequence_i%29%20%2B%20%5Cbeta_2%28Treatment_%7Bij%7D%29%20%2B%20%5Cbeta_3%28Microbiome%5E%7Bwithin%7D_%7Bij%7D%29%20%2B%20%5Cbeta_4%28Adiposity_i%29%20%2B%20%5Cbeta_5%28Microbiome%5E%7Bwithin%7D_%7Bij%7D%20%5Ctimes%20Adiposity_i%29%20%2B%20%5Cbeta_6%28Microbiome%5E%7Bbetween%7D_i%29%20%2B%20u_i%20%2B%20%5Cepsilon_%7Bij%7D%2C%20%5C%20i%20%3D%201%2C%5Ccdots%2Cn%3B%20%5C%20j%20%3D%201%2C2)
+    - where $u_i \sim N(0,\sigma^2_u)$ is a random intercept for subject
+      $i$, and $\epsilon_{ij} \sim N(0,\sigma^2_e)$ is the residual
+      error
+      - $\beta_5$ is the corresponding parameter of interest here,
+        testing the same interaction as $\beta_4$ in the delta model
+        above, using the within-subject microbiome component
 - Although the two models use different estimation methods (ordinary
   least squares vs REML), both approaches should produce similar results
   - With exactly two phases per subject, the within-subject microbiome
@@ -857,3 +847,91 @@ Zero in one phase
 |                   | ≥43%            | 0.168  |  -0.318  |  0.654   | 0.4859  |
 | ApoB              | \<43%           | -1.508 |  -2.908  |  -0.109  | 0.0355  |
 |                   | ≥43%            | 0.190  |  -0.787  |  1.167   | 0.6951  |
+
+## Influence diagnostics
+
+- To evaluate whether the Roseburia_2 (within-subject) × %body fat
+  interaction was disproportionately driven by any individual
+  participant, we computed DFBETA for the interaction term specifically,
+  using the linear mixed models described above.
+  - DFBETA for the interaction term measures how much the estimated
+    Roseburia_2 × %body fat coefficient shifts when each participant is
+    excluded, one at a time.
+  - Participants exceeding the conventional
+    $\lvert DFBETA \rvert > 2/\sqrt{n}$ threshold were flagged as
+    influential and the model was re-estimated without them to check
+    whether the interaction held up.
+- The plot below shows DFBETA for the interaction term by participant ID
+  for the TC model. None of the participants exceeded the threshold.
+
+![](summary_files/figure-gfm/influence_TC-1.png)<!-- -->
+
+- For LDL, participant 6 exceeded the threshold and was flagged as
+  influential. This participant showed the second-largest decrease in
+  both TC and LDL, and the third-largest increase in **Roseburia_2**,
+  during the mac treatment.
+
+![](summary_files/figure-gfm/influence_LDL-1.png)<!-- -->
+
+|  id | group_lab   | phase | treatment | pct_fat | chol |   ldl | hdl | apob |  shannon | roseburia_2 |
+|----:|:------------|------:|:----------|--------:|-----:|------:|----:|-----:|---------:|------------:|
+|   6 | mac-control |     1 | mac       |    38.0 |  152 |  61.4 |  67 |   92 | 3.341338 |        1061 |
+|   6 | mac-control |     2 | control   |    38.8 |  208 | 126.0 |  59 |  106 | 3.378726 |         101 |
+
+- For ApoB, participant 5 exceeded the threshold and was flagged as
+  influential. This participant showed the largest decrease in all
+  cardiometabolic measures, and the sixth-largest increase in
+  **Roseburia_2**, during the mac treatment.
+
+![](summary_files/figure-gfm/influence_ApoB-1.png)<!-- -->
+
+|  id | group_lab   | phase | treatment | pct_fat | chol |   ldl | hdl | apob |  shannon | roseburia_2 |
+|----:|:------------|------:|:----------|--------:|-----:|------:|----:|-----:|---------:|------------:|
+|   5 | control-mac |     1 | control   |    41.3 |  295 | 191.0 |  83 |  125 | 3.621324 |          86 |
+|   5 | control-mac |     2 | mac       |    41.9 |  218 | 118.2 |  65 |   93 | 3.637611 |         636 |
+
+- Sensitivity analyses were conducted by excluding the flagged
+  participant from each model: participant 6 for LDL and participant 5
+  for ApoB.
+
+- After removing the participant 6 and refitting the LDL model, the
+  interaction term remained significant (p = 0.0333)
+
+| Term | Beta | Lower CI | Upper CI | P-value |
+|:---|:--:|:--:|:--:|:--:|
+| Intercept | 103.783 | 73.592 | 133.974 | \<0.0001 |
+| Treatment (Mac vs. Control) | 0.829 | -9.887 | 11.545 | 0.8756 |
+| Sequence group | 7.960 | -10.854 | 26.773 | 0.3944 |
+| Roseburia_2 (within-subject, per 100 units) | -1.632 | -4.054 | 0.791 | 0.1793 |
+| %Body fat (centered) | -0.078 | -1.727 | 1.572 | 0.9241 |
+| Roseburia_2 (between-subject, per 100 units) | 0.449 | -2.597 | 3.494 | 0.7656 |
+| Roseburia_2 (within) × %Body fat | **0.384** | 0.033 | 0.736 | **0.0333** |
+
+- After removing the participant 5 and refitting the ApoB model, the
+  interaction term remained significant (p = 0.0194)
+
+| Term | Beta | Lower CI | Upper CI | P-value |
+|:---|:--:|:--:|:--:|:--:|
+| Intercept | 100.678 | 82.358 | 118.997 | \<0.0001 |
+| Treatment (Mac vs. Control) | 1.001 | -3.406 | 5.408 | 0.6465 |
+| Sequence group | 3.813 | -7.742 | 15.368 | 0.5056 |
+| Roseburia_2 (within-subject, per 100 units) | -0.376 | -1.288 | 0.537 | 0.4078 |
+| %Body fat (centered) | 0.312 | -0.689 | 1.313 | 0.5292 |
+| Roseburia_2 (between-subject, per 100 units) | -0.539 | -2.363 | 1.284 | 0.5505 |
+| Roseburia_2 (within) × %Body fat | **0.156** | 0.027 | 0.285 | **0.0194** |
+
+## Estimated diet effects for Roseburia ASVs (MaAsLin3 output)
+
+- Diet effect estimates were read into R from the MaAsLin3 model output
+  - file:
+    `maaslin3_crossover_output_both_models_small_random_effect\adjusted_main_allvars_n-tss_t-log_p-0.1_q-0.25\all_results.tsv`
+- Filtering for `roseburia` (case-insensitive) returned only 5 Roseburia
+  ASVs. 95% confidence intervals were calculated from the point
+  estimates and their standard errors, and are plotted below
+  - All five Roseburia ASVs point the same direction (positive — higher
+    under the mac diet)
+  - Individual p-values were significant for Roseburia_2 and Roseburia
+    hominis; however, only Roseburia_2 remained significant after FDR
+    correction
+
+![](summary_files/figure-gfm/plot_from_MaAsLin3-1.png)<!-- -->
