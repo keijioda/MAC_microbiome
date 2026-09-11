@@ -602,7 +602,7 @@ Zero in one phase
 
 ![](summary_files/figure-gfm/scatterplot_roseburia2_cardiometabolics-1.png)<!-- -->
 
-## Modelling
+## Modelling approaches
 
 - Two modelling approaches were considered:
   - Linear models with the within-subject difference (Mac − Control) of
@@ -648,7 +648,7 @@ Zero in one phase
     smaller p-values) for within-subject terms, but should not change
     the direction or general magnitude of the estimated effects
 
-### Linear models with Δ Shannon index
+## Linear models with Δ Shannon index
 
 - When Δ cardiometabolic outcomes were regressed on Δ Shannon index,
   baseline %body fat (centered at its median value of 43%), their
@@ -681,7 +681,9 @@ Zero in one phase
 |  | %Body fat (centered) | 0.257 | -0.481 | 0.994 | 0.4832 |
 |  | Sequence group | 3.260 | -4.691 | 11.210 | 0.4095 |
 
-### Linear mixed models with Shannon index
+## Linear mixed models with Shannon index
+
+### Using baseline %body fat for adiposity
 
 - When linear mixed models were fitted instead, again none of the
   interaction terms between the within-subject Shannon index and
@@ -721,7 +723,44 @@ Zero in one phase
 |  | %Body fat (centered) | 0.214 | -0.747 | 1.174 | 0.6534 |
 |  | Shannon index (between-subject) | -5.532 | -13.801 | 2.738 | 0.1823 |
 
-### Linear models with Δ Roseburia_2
+### Using baseline BMI for adiposity
+
+- Instead of %body fat, we reran the models using baseline BMI (centered
+  at its median value of 30) as the adiposity measure. None of the
+  interaction terms between the within-subject Shannon index and
+  baseline BMI were statistically significant.
+
+- The models were then refit without the interaction term. The results
+  were virtually identical to those obtained with %body fat.
+
+| Outcome | Term | Beta | Lower CI | Upper CI | P-value |
+|:---|:---|:--:|:--:|:--:|:--:|
+| Total cholesterol | Intercept | 222.404 | 161.628 | 283.180 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -9.857 | -20.802 | 1.088 | 0.0759 |
+|  | Sequence group | 1.729 | -16.284 | 19.741 | 0.8461 |
+|  | Shannon index (within-subject) | **44.165** | 5.166 | 83.163 | **0.0277** |
+|  | Baseline BMI (centered) | -0.917 | -3.584 | 1.750 | 0.4884 |
+|  | Shannon index (between-subject) | -5.498 | -19.234 | 8.237 | 0.4205 |
+| LDL | Intercept | 134.234 | 73.506 | 194.963 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -9.888 | -19.874 | 0.097 | 0.0521 |
+|  | Sequence group | 8.602 | -9.406 | 26.611 | 0.3375 |
+|  | Shannon index (within-subject) | **41.086** | 5.506 | 76.666 | **0.0249** |
+|  | Baseline BMI (centered) | -0.387 | -3.054 | 2.280 | 0.7690 |
+|  | Shannon index (between-subject) | -6.827 | -20.560 | 6.905 | 0.3184 |
+| HDL | Intercept | 44.722 | 20.454 | 68.990 | 0.0007 |
+|  | Treatment (Mac vs. Control) | -0.491 | -2.613 | 1.631 | 0.6409 |
+|  | Sequence group | -0.838 | -8.049 | 6.374 | 0.8143 |
+|  | Shannon index (within-subject) | 1.689 | -5.873 | 9.251 | 0.6525 |
+|  | Baseline BMI (centered) | 0.433 | -0.635 | 1.501 | 0.4145 |
+|  | Shannon index (between-subject) | 3.522 | -1.977 | 9.021 | 0.2010 |
+| ApoB | Intercept | 123.907 | 87.163 | 160.651 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -3.247 | -7.572 | 1.077 | 0.1361 |
+|  | Sequence group | 3.397 | -7.514 | 14.308 | 0.5301 |
+|  | Shannon index (within-subject) | **18.244** | 2.836 | 33.652 | **0.0217** |
+|  | Baseline BMI (centered) | -0.130 | -1.746 | 1.486 | 0.8707 |
+|  | Shannon index (between-subject) | -5.829 | -14.149 | 2.492 | 0.1631 |
+
+## Linear models with Δ Roseburia_2
 
 - Δ Roseburia_2 was rescaled to units of 100 (i.e., divided by 100)
   prior to modelling, so that the estimated coefficients reflect the
@@ -788,7 +827,9 @@ Zero in one phase
 | ApoB              | \<43%           | -1.478 |  -3.136  |  0.180   | 0.0786  |
 |                   | ≥43%            | 0.178  |  -0.891  |  1.247   | 0.7368  |
 
-### Linear mixed models with Roseburia_2
+## Linear mixed models with Roseburia_2
+
+### Using baseline %body fat for adiposity
 
 - When linear mixed models were fitted instead, the interaction term
   between the within-subject **Roseburia_2** and baseline %body fat was
@@ -848,7 +889,65 @@ Zero in one phase
 | ApoB              | \<43%           | -1.508 |  -2.908  |  -0.109  | 0.0355  |
 |                   | ≥43%            | 0.190  |  -0.787  |  1.167   | 0.6951  |
 
-## Influence diagnostics
+### Using baseline BMI for adiposity
+
+- Instead of %body fat, we reran the models using baseline BMI (centered
+  at its median value of 30) as the adiposity measure. The interaction
+  term between the within-subject **Roseburia_2** and baseline BMI was
+  statistically significant for TC and LDL.
+  - Note that, in contrast to the mixed model with %body fat, the
+    interaction was no longer significant for ApoB.
+
+| Outcome | Term | Beta | Lower CI | Upper CI | P-value |
+|:---|:---|:--:|:--:|:--:|:--:|
+| Total cholesterol | Intercept | 196.647 | 167.405 | 225.888 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -2.231 | -14.258 | 9.795 | 0.7080 |
+|  | Sequence group | 2.149 | -16.044 | 20.342 | 0.8112 |
+|  | Roseburia_2 (within-subject, per 100 units) | -1.045 | -3.478 | 1.388 | 0.3881 |
+|  | Baseline BMI (centered) | -0.752 | -3.425 | 1.921 | 0.5704 |
+|  | Roseburia_2 (between-subject, per 100 units) | 0.332 | -2.588 | 3.252 | 0.8182 |
+|  | Roseburia_2 (within) × BMI | **0.785** | 0.086 | 1.484 | **0.0289** |
+| LDL | Intercept | 102.972 | 73.683 | 132.261 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -1.201 | -11.706 | 9.305 | 0.8174 |
+|  | Sequence group | 9.247 | -9.057 | 27.551 | 0.3108 |
+|  | Roseburia_2 (within-subject, per 100 units) | -1.579 | -3.704 | 0.546 | 0.1399 |
+|  | Baseline BMI (centered) | -0.195 | -2.884 | 2.494 | 0.8834 |
+|  | Roseburia_2 (between-subject, per 100 units) | 0.180 | -2.758 | 3.118 | 0.9013 |
+|  | Roseburia_2 (within) × BMI | **0.847** | 0.236 | 1.457 | **0.0081** |
+| HDL | Intercept | 57.288 | 46.020 | 68.556 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -0.727 | -3.056 | 1.602 | 0.5293 |
+|  | Sequence group | -1.705 | -8.813 | 5.402 | 0.6281 |
+|  | Roseburia_2 (within-subject, per 100 units) | 0.166 | -0.305 | 0.637 | 0.4771 |
+|  | Baseline BMI (centered) | 0.390 | -0.654 | 1.434 | 0.4520 |
+|  | Roseburia_2 (between-subject, per 100 units) | 0.916 | -0.225 | 2.057 | 0.1116 |
+|  | Roseburia_2 (within) × BMI | -0.026 | -0.162 | 0.109 | 0.6930 |
+| ApoB | Intercept | 100.424 | 82.582 | 118.265 | \<0.0001 |
+|  | Treatment (Mac vs. Control) | -0.398 | -5.394 | 4.597 | 0.8720 |
+|  | Sequence group | 4.290 | -6.921 | 15.501 | 0.4410 |
+|  | Roseburia_2 (within-subject, per 100 units) | -0.290 | -1.301 | 0.720 | 0.5624 |
+|  | Baseline BMI (centered) | -0.002 | -1.649 | 1.645 | 0.9981 |
+|  | Roseburia_2 (between-subject, per 100 units) | -0.493 | -2.292 | 1.306 | 0.5802 |
+|  | Roseburia_2 (within) × BMI | 0.213 | -0.077 | 0.504 | 0.1440 |
+
+- Subsequently, the slope of the within-subject **Roseburia_2** term was
+  estimated separately within each baseline BMI group (\<30 and ≥30)
+
+- A significant negative association with the within-subject
+  **Roseburia_2** term was observed in the lower BMI group (\<30) only
+  for LDL
+
+| Outcome           | BMI group |  Beta  | Lower CI | Upper CI | P-value |
+|:------------------|:----------|:------:|:--------:|:--------:|:-------:|
+| Total cholesterol | \<30      | -2.964 |  -6.154  |  0.226   | 0.0675  |
+| Total cholesterol | ≥30       | 1.439  |  -1.573  |  4.451   | 0.3378  |
+| LDL               | \<30      | -3.649 |  -6.436  |  -0.862  | 0.0119  |
+| LDL               | ≥30       | 1.100  |  -1.531  |  3.731   | 0.4007  |
+| HDL               | \<30      | 0.231  |  -0.387  |  0.849   | 0.4517  |
+| HDL               | ≥30       | 0.083  |  -0.501  |  0.666   | 0.7748  |
+| ApoB              | \<30      | -0.812 |  -2.137  |  0.513   | 0.2210  |
+| ApoB              | ≥30       | 0.385  |  -0.866  |  1.636   | 0.5352  |
+
+## Influence diagnostics for linear mixed models
 
 - To evaluate whether the Roseburia_2 (within-subject) × %body fat
   interaction was disproportionately driven by any individual

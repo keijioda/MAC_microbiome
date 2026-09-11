@@ -799,13 +799,28 @@ coef_long %>%
   kable(align = c("l", "l", "c", "c", "c", "c"))
 
 
+# Using BMI
+# Center BMI at its median value of 30
+summary(df_delta$bmi_b)
+
+# Run linear model with %fat and its interaction with Shannon index
+# None of interaction terms was significant 
+lm_fits <- outcomes %>% 
+  paste("~ delta_shannon * I(bmi_b - 30) + group") %>% 
+  lapply(lm, data = df_delta) %>% 
+  setNames(outcomes)
+
+# Estimated beta coefficients
+lm_fits %>% lapply(summary)
+
+
 # Linear mixed model for Shannon index ------------------------------------
 
 # Exclude baseline
 # Create within- and between-subject terms
 baseline_fat <- df %>% 
   filter(visit == 0) %>% 
-  select(id, pct_fat_b = pct_fat)
+  select(id, pct_fat_b = pct_fat, bmi_b = bmi)
 
 df_long <- df %>% 
   left_join(baseline_fat, by = "id") %>% 
@@ -880,6 +895,63 @@ coef_long_mixed <- coef_tbl_mixed %>%
 coef_long_mixed %>% 
   kable(align = c("l", "l", "c", "c", "c", "c"))
 
+# Run linear mixed model with baseline BMI and its interaction with Shannon index
+lmer_fits_intx_bmi <- outcomes %>% 
+  paste("~ treatment + group + shannon_within * I(bmi_b - 30) + shannon_between + (1 | id)") %>% 
+  lapply(lmer, data = df_long) %>% 
+  setNames(outcomes)
+
+# None of interaction terms was significant 
+lmer_fits_intx_bmi %>% lapply(summary)
+
+# Drop the interaction term 
+lmer_fits_bmi <- outcomes %>% 
+  paste("~ treatment + group + shannon_within + I(bmi_b - 30) + shannon_between + (1 | id)") %>% 
+  lapply(lmer, data = df_long) %>% 
+  setNames(outcomes)
+
+lmer_fits_bmi %>% lapply(summary)
+
+# Tidy each mixed model's fixed effects, with 95% CIs
+coef_tbl_mixed_bmi <- lmer_fits_bmi %>% 
+  imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
+
+# Term labels -- check unique(coef_tbl_mixed$term) and adjust if
+# "treatmentmac" doesn't match your factor's reference level
+term_labels <- c(
+  "(Intercept)"       = "Intercept",
+  "treatmentmac"      = "Treatment (Mac vs. Control)",
+  "group"             = "Sequence group",
+  "shannon_within"    = "Shannon index (within-subject)",
+  "I(bmi_b - 30)"     = "Baseline BMI (centered)",
+  "shannon_between"   = "Shannon index (between-subject)"
+)
+
+outcome_labels <- c(
+  chol = "Total cholesterol", ldl = "LDL",
+  hdl  = "HDL",               apob = "ApoB"
+)
+
+coef_long_mixed_bmi <- coef_tbl_mixed_bmi %>% 
+  mutate(
+    sig     = p.value < 0.05 & term != "(Intercept)",
+    term    = factor(term, levels = names(term_labels), labels = term_labels),
+    outcome = factor(outcome, levels = names(outcome_labels), labels = outcome_labels)
+  ) %>% 
+  transmute(
+    Outcome    = outcome,
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+coef_long_mixed_bmi %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+
 # Linear model for Roseburia_2 --------------------------------------------
 
 # Define outcomes
@@ -943,7 +1015,10 @@ fat_means <- df_delta %>%
   group_by(fat_grp) %>% 
   summarise(mean_fat = mean(pct_fat_b), .groups = "drop")
 
-fat_means
+bmi_means <- df_delta %>% 
+  mutate(bmi_grp = if_else(bmi_b < 30, "Low (<30)", "High (≥30)")) %>% 
+  group_by(bmi_grp) %>% 
+  summarise(mean_bmi = mean(bmi_b), .groups = "drop")
 
 # Slope of delta_roseburia_2 on each outcome, at each group's mean %body fat
 slopes <- lm_fits %>% 
@@ -989,6 +1064,19 @@ slopes_tbl <- slopes %>%
 slopes_tbl %>% 
   kable(align = c("l", "l", "c", "c", "c", "c"))
 
+# Using BMI
+# Center BMI at its median value of 30
+summary(df_delta$bmi_b)
+
+# Run linear model with %fat and its interaction with Roseburia_2
+# Interaction was significant for CHOL (p = 0.0278) and LDL (p = 0.0205) 
+lm_fits <- outcomes %>% 
+  paste("~ I(delta_roseburia_2 / 100) * I(bmi_b - 30) + group") %>% 
+  lapply(lm, data = df_delta) %>% 
+  setNames(outcomes)
+
+# Estimated beta coefficients
+lm_fits %>% lapply(summary)
 
 # Linear mixed model for Roseburia_2 --------------------------------------
 
@@ -1046,6 +1134,7 @@ coef_long_mixed <- coef_tbl_mixed %>%
 coef_long_mixed %>% 
   kable(align = c("l", "l", "c", "c", "c", "c"))
 
+# Estimate slope for roseburia2, within
 slopes_mixed <- lmer_fits_intx %>% 
   lapply(function(m) {
     emtrends(m, ~ pct_fat_b, var = "roseburia_2_within",
@@ -1082,6 +1171,92 @@ slopes_tbl <- slopes_mixed %>%
 slopes_tbl %>% 
   kable(align = c("l", "l", "c", "c", "c", "c"))
 
+# Run linear mixed model with baseline BMI and its interaction with Roseburia_2
+# Significant interaction terms in TC and LDL
+lmer_fits_intx_bmi <- outcomes %>% 
+  paste("~ treatment + group + I(roseburia_2_within / 100) * I(bmi_b - 30) + I(roseburia_2_between / 100) + (1 | id)") %>% 
+  lapply(lmer, data = df_long) %>% 
+  setNames(outcomes)
+
+lmer_fits_intx_bmi %>% lapply(summary)
+
+# Tidy each mixed model's fixed effects, with 95% CIs
+coef_tbl_mixed_bmi <- lmer_fits_intx_bmi %>% 
+  imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
+
+# Term labels -- check unique(coef_tbl_mixed$term) and adjust names below
+# if any don't match (e.g. "treatmentmac" depends on which level of
+# `treatment` R picked as the reference)
+term_labels <- c(
+  "(Intercept)"                                 = "Intercept",
+  "treatmentmac"                                = "Treatment (Mac vs. Control)",
+  "group"                                       = "Sequence group",
+  "I(roseburia_2_within/100)"                   = "Roseburia_2 (within-subject, per 100 units)",
+  "I(bmi_b - 43)"                               = "Baseline BMI (centered)",
+  "I(roseburia_2_between/100)"                  = "Roseburia_2 (between-subject, per 100 units)",
+  "I(roseburia_2_within/100):I(bmi_b - 30)"     = "Roseburia_2 (within) \u00d7 BMI"
+)
+
+outcome_labels <- c(
+  chol = "Total cholesterol", ldl = "LDL",
+  hdl  = "HDL",               apob = "ApoB"
+)
+
+coef_long_mixed_bmi <- coef_tbl_mixed_bmi %>% 
+  mutate(
+    sig     = p.value < 0.05 & term != "(Intercept)",
+    term    = factor(term, levels = names(term_labels), labels = term_labels),
+    outcome = factor(outcome, levels = names(outcome_labels), labels = outcome_labels)
+  ) %>% 
+  transmute(
+    Outcome    = outcome,
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+coef_long_mixed_bmi %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+# Estimate slope for roseburia2, within
+slopes_mixed_bmi <- lmer_fits_intx_bmi %>% 
+  lapply(function(m) {
+    emtrends(m, ~ bmi_b, var = "roseburia_2_within",
+             at = list(bmi_b = bmi_means$mean_bmi),
+             data = df_long) %>% 
+      summary(infer = TRUE) %>% 
+      mutate(
+        roseburia_2_within.trend = roseburia_2_within.trend * 100,
+        SE       = SE * 100,
+        lower.CL = lower.CL * 100,
+        upper.CL = upper.CL * 100
+      )
+  })
+
+slopes_mixed_bmi
+
+slopes_tbl_bmi <- slopes_mixed_bmi %>% 
+  imap_dfr(~ as_tibble(.x) %>% mutate(outcome = .y)) %>% 
+  mutate(
+    outcome   = factor(outcome, levels = names(outcome_labels), labels = outcome_labels),
+    bmi_group = if_else(bmi_b < 30, "<30", "\u226530"),
+    bmi_group = factor(bmi_group, levels = c("<30", "\u226530"))
+  ) %>% 
+  arrange(outcome, bmi_group) %>% 
+  transmute(
+    Outcome     = outcome,
+    `BMI group` = bmi_group,
+    Beta        = sprintf("%.3f", roseburia_2_within.trend),
+    `Lower CI`  = sprintf("%.3f", lower.CL),
+    `Upper CI`  = sprintf("%.3f", upper.CL),
+    `P-value`   = pval_4dp(p.value)
+  )
+
+slopes_tbl_bmi %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
 
 # Influlence statistics ---------------------------------------------------
 
@@ -1337,4 +1512,165 @@ coef_tbl_mixed_sens6_ldl %>%
     `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
   ) %>% 
   kable(align = c("l", "c", "c", "c", "c"))
+
+
+# Mediation analysis ------------------------------------------------------
+
+# --- Path a: treatment -> Roseburia_2 (scaled to match model_b's /100 predictor) ---
+model_a <- lmer(
+  I(roseburia_2/100) ~ treatment + group + (1 | id),
+  data = df_long
+)
+
+summary(model_a)
+
+a_within <- tidy(model_a, effects = "fixed") %>% filter(term == "treatmentmac")
+a_est <- a_within$estimate; a_se <- a_within$std.error
+
+# --- Path b / c': treatment + Roseburia_2 (x adiposity) -> lipid outcome ---
+# (unchanged -- your existing primary model)
+model_b <- lmer(
+  chol ~ treatment + group +
+    I(roseburia_2_within/100) * I(pct_fat_b - 43) +
+    I(roseburia_2_between/100) +
+    (1 | id),
+  data = df_long
+)
+
+b_terms   <- c("I(roseburia_2_within/100)", "I(roseburia_2_within/100):I(pct_fat_b - 43)")
+b_est_vec <- fixef(model_b)[b_terms]
+b_cov     <- as.matrix(vcov(model_b)[b_terms, b_terms])
+
+set.seed(123)
+n_sim <- 20000
+a_sim <- rnorm(n_sim, a_est, a_se)
+b_sim <- MASS::mvrnorm(n_sim, mu = b_est_vec, Sigma = b_cov)  # cols: b_main, b_interaction
+
+fat_sd <- sd(df_long$pct_fat_b, na.rm = TRUE)
+fat_levels <- c(low = -fat_sd, mean = 0, high = fat_sd)
+
+cond_indirect <- sapply(fat_levels, function(w) {
+  b_cond       <- b_sim[, 1] + b_sim[, 2] * w
+  indirect_sim <- a_sim * b_cond
+  c(estimate = unname(a_est * (b_est_vec[1] + b_est_vec[2] * w)),
+    quantile(indirect_sim, c(0.025, 0.975)))
+})
+t(cond_indirect)
+
+index_sim <- a_sim * b_sim[, 2]
+index_est <- unname(a_est * b_est_vec[2])
+index_ci  <- quantile(index_sim, c(0.025, 0.975))
+index_est; index_ci
+
+library(boot)
+
+ids_df <- data.frame(id = unique(df_long$id))
+
+boot_stat <- function(ids_df, indices) {
+  boot_ids <- ids_df$id[indices]
+  
+  boot_data <- map2_dfr(boot_ids, seq_along(boot_ids), function(orig_id, new_id) {
+    df_long %>% filter(id == orig_id) %>% mutate(id = new_id)
+  })
+  
+  out <- tryCatch({
+    m_a <- lmer(I(roseburia_2/100) ~ treatment + group + (1 | id), data = boot_data)
+    m_b <- lmer(chol ~ treatment + group +
+                  I(roseburia_2_within/100) * I(pct_fat_b - 43) +
+                  I(roseburia_2_between/100) +
+                  (1 | id), data = boot_data)
+    
+    a_est  <- fixef(m_a)["treatmentmac"]
+    b_main <- fixef(m_b)["I(roseburia_2_within/100)"]
+    b_intx <- fixef(m_b)["I(roseburia_2_within/100):I(pct_fat_b - 43)"]
+    fat_sd <- sd(boot_data$pct_fat_b, na.rm = TRUE)
+    
+    c(indirect_low  = a_est * (b_main - fat_sd * b_intx),
+      indirect_mean = a_est * b_main,
+      indirect_high = a_est * (b_main + fat_sd * b_intx),
+      index_mod_med = a_est * b_intx)
+  }, error = function(e) rep(NA_real_, 4), warning = function(w) rep(NA_real_, 4))
+  
+  out
+}
+
+set.seed(123)
+boot_out <- boot(ids_df, boot_stat, R = 2000)
+
+boot_out
+boot.ci(boot_out, type = "bca", index = 1)  # indirect effect, low adiposity
+boot.ci(boot_out, type = "bca", index = 2)  # indirect effect, mean adiposity
+boot.ci(boot_out, type = "bca", index = 3)  # indirect effect, high adiposity
+boot.ci(boot_out, type = "bca", index = 4)  # index of moderated mediation
+
+nodes <- data.frame(
+  x = c(0, 4, 2, 5.6),
+  y = c(2, 2, 0, 1.1),
+  label = c("Mac treatment\n(vs. control)\n(X)",
+            "Roseburia_2\n(\u0394, mediator M)",
+            "Total cholesterol\n(\u0394, outcome Y)",
+            "%Body fat\n(moderator W)")
+)
+
+edges <- data.frame(
+  x    = c(0.6, 3.6, 0.5, 5.3),
+  y    = c(2, 1.7, 1.7, 1.0),
+  xend = c(3.4, 2.3, 1.7, 3.0),
+  yend = c(2, 0.3, 0.3, 1.6),
+  ltype = c("solid", "solid", "dashed", "dotted")
+)
+
+ggplot() +
+  geom_segment(data = edges, aes(x = x, y = y, xend = xend, yend = yend, linetype = ltype),
+               arrow = arrow(length = unit(0.3, "cm"), type = "closed"),
+               linewidth = 0.9, show.legend = FALSE) +
+  scale_linetype_identity() +
+  geom_label(data = nodes, aes(x = x, y = y, label = label),
+             size = 4, label.padding = unit(0.6, "lines"), fill = "grey95") +
+  annotate("text", x = 2, y = 2.25, label = "path a", fontface = "italic", size = 3.8) +
+  annotate("text", x = 3.3, y = 1.0, label = "path b", fontface = "italic", size = 3.8) +
+  annotate("text", x = 0.7, y = 1.0, label = "path c' (direct)", fontface = "italic", size = 3.8) +
+  annotate("text", x = 2, y = -0.7,
+           label = paste0(
+             "Indirect effect by %body fat:  low = -11.89 [-26.32, -2.47]*   ",
+             "mean = -4.45 [-12.69, 1.31]   high = 3.00 [-1.97, 7.96]\n",
+             "Index of moderated mediation = 1.30 [0.55, 2.68]*"),
+           size = 3.4) +
+  xlim(-0.8, 6.4) + ylim(-1.2, 2.6) +
+  theme_void()
+
+get_bca <- function(boot_out, index) {
+  ci <- boot.ci(boot_out, type = "bca", index = index)$bca
+  c(estimate = unname(boot_out$t0[index]),
+    lower    = unname(ci[4]),
+    upper    = unname(ci[5]))
+}
+
+fat_sd <- sd(df_long$pct_fat_b, na.rm = TRUE)
+
+rows <- list(
+  low   = get_bca(boot_out, 1),
+  mean  = get_bca(boot_out, 2),
+  high  = get_bca(boot_out, 3),
+  index = get_bca(boot_out, 4)
+)
+
+mediation_tbl <- tibble(
+  Quantity = c(
+    sprintf("Indirect effect \u2014 low adiposity (%.1f%% body fat)",  43 - fat_sd),
+    "Indirect effect \u2014 mean adiposity (43.0% body fat)",
+    sprintf("Indirect effect \u2014 high adiposity (%.1f%% body fat)", 43 + fat_sd),
+    "Index of moderated mediation"
+  ),
+  Estimate    = sapply(rows, function(r) sprintf("%.2f", r["estimate"])),
+  `95% BCa CI` = sapply(rows, function(r) sprintf("[%.2f, %.2f]", r["lower"], r["upper"]))
+) %>%
+  mutate(
+    sig      = sapply(rows, function(r) r["lower"] > 0 | r["upper"] < 0),
+    Estimate = if_else(sig, paste0("**", Estimate, "**"), Estimate)
+  ) %>%
+  select(-sig)
+
+kable(mediation_tbl, align = c("l", "c", "c"),
+      caption = "Moderated mediation: indirect effect of mac treatment on total cholesterol via Roseburia_2, conditional on %body fat (2,000-replicate cluster bootstrap, BCa 95% CI)")
 

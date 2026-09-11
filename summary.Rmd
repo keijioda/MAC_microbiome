@@ -685,7 +685,7 @@ df_delta %>%
 
 ```
 
-## Modelling
+## Modelling approaches
 
 * Two modelling approaches were considered:
   * Linear models with the within-subject difference (Mac − Control) of cardiometabolic measures as the outcome
@@ -703,7 +703,7 @@ df_delta %>%
   * With exactly two phases per subject, the within-subject microbiome component in the mixed model is mathematically tied to the delta microbiome measure used in the linear model (see above), so both models are ultimately testing the same underlying within-subject association
   * The mixed model estimates the within-subject residual variance directly from the full set of repeated measures, while the linear model estimates it from the already-differenced values; this can give the mixed model slightly more precision (and correspondingly smaller p-values) for within-subject terms, but should not change the direction or general magnitude of the estimated effects
 
-### Linear models with Δ Shannon index
+## Linear models with Δ Shannon index
 
 * When Δ cardiometabolic outcomes were regressed on Δ Shannon index, baseline %body fat (centered at its median value of 43%), their interaction, and sequence, none of the interaction terms was statistically significant.
   * This is also supported by the scatterplots shown earlier of Δ Shannon index against the Δ cardiometabolic measures.
@@ -764,7 +764,9 @@ coef_long %>%
 
 ```
 
-### Linear mixed models with Shannon index
+## Linear mixed models with Shannon index
+
+### Using baseline %body fat for adiposity
 
 * When linear mixed models were fitted instead, again none of the interaction terms between the within-subject Shannon index and baseline %body fat was statistically significant
 
@@ -779,7 +781,7 @@ coef_long %>%
 # Create within- and between-subject terms
 baseline_fat <- df %>% 
   filter(visit == 0) %>% 
-  select(id, pct_fat_b = pct_fat)
+  select(id, pct_fat_b = pct_fat, bmi_b = bmi)
 
 df_long <- df %>% 
   left_join(baseline_fat, by = "id") %>% 
@@ -808,8 +810,7 @@ lmer_fits <- outcomes %>%
 coef_tbl_mixed <- lmer_fits %>% 
   imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
 
-# Term labels -- check unique(coef_tbl_mixed$term) and adjust if
-# "treatmentmac" doesn't match your factor's reference level
+# Term labels 
 term_labels <- c(
   "(Intercept)"       = "Intercept",
   "treatmentmac"      = "Treatment (Mac vs. Control)",
@@ -845,7 +846,58 @@ coef_long_mixed %>%
 
 ```
 
-### Linear models with Δ Roseburia_2 
+### Using baseline BMI for adiposity
+
+* Instead of %body fat, we reran the models using baseline BMI (centered at its median value of 30) as the adiposity measure. None of the interaction terms between the within-subject Shannon index and baseline BMI were statistically significant.
+
+* The models were then refit without the interaction term. The results were virtually identical to those obtained with %body fat.
+
+
+```{r lmer_shannon_with_BMI}
+
+# Drop the interaction term 
+lmer_fits_bmi <- outcomes %>% 
+  paste("~ treatment + group + shannon_within + I(bmi_b - 30) + shannon_between + (1 | id)") %>% 
+  lapply(lmer, data = df_long) %>% 
+  setNames(outcomes)
+
+# Tidy each mixed model's fixed effects, with 95% CIs
+coef_tbl_mixed_bmi <- lmer_fits_bmi %>% 
+  imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
+
+# Term labels
+term_labels <- c(
+  "(Intercept)"       = "Intercept",
+  "treatmentmac"      = "Treatment (Mac vs. Control)",
+  "group"             = "Sequence group",
+  "shannon_within"    = "Shannon index (within-subject)",
+  "I(bmi_b - 30)"     = "Baseline BMI (centered)",
+  "shannon_between"   = "Shannon index (between-subject)"
+)
+
+coef_long_mixed_bmi <- coef_tbl_mixed_bmi %>% 
+  mutate(
+    sig     = p.value < 0.05 & term != "(Intercept)",
+    term    = factor(term, levels = names(term_labels), labels = term_labels),
+    outcome = factor(outcome, levels = names(outcome_labels), labels = outcome_labels)
+  ) %>% 
+  transmute(
+    Outcome    = outcome,
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+coef_long_mixed_bmi %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+```
+
+
+## Linear models with Δ Roseburia_2 
 
 * Δ Roseburia_2 was rescaled to units of 100 (i.e., divided by 100) prior to modelling, so that the estimated coefficients reflect the change in outcome associated with a 100-unit increase in Δ Roseburia_2, a more interpretable and reportable unit given that raw abundance values range from the hundreds to over a thousand
 
@@ -916,11 +968,17 @@ coef_long %>%
 
 ```{r lm_delta_roseburia_2_slopes}
 
-# Mean %body fat within each side of the median split (mirrors the paper's grouping)
+# Mean %body fat within each side of the median split
 fat_means <- df_delta %>% 
   mutate(fat_grp = if_else(pct_fat_b < 43, "Low (<43%)", "High (≥43%)")) %>% 
   group_by(fat_grp) %>% 
   summarise(mean_fat = mean(pct_fat_b), .groups = "drop")
+
+# Mean BMI within each side of the median split
+bmi_means <- df_delta %>% 
+  mutate(bmi_grp = if_else(bmi_b < 30, "Low (<30)", "High (≥30)")) %>% 
+  group_by(bmi_grp) %>% 
+  summarise(mean_bmi = mean(bmi_b), .groups = "drop")
 
 # Slope of delta_roseburia_2 on each outcome, at each group's mean %body fat
 slopes <- lm_fits %>% 
@@ -966,7 +1024,9 @@ slopes_tbl %>%
 
 ```
 
-### Linear mixed models with Roseburia_2
+## Linear mixed models with Roseburia_2
+
+### Using baseline %body fat for adiposity
 
 * When linear mixed models were fitted instead, the interaction term between the within-subject **Roseburia_2** and baseline %body fat was statistically significant for TC, LDL, and ApoB
   * Note that, in contrast to the linear model above, the interaction became significant for ApoB (p = 0.0133)
@@ -990,9 +1050,7 @@ lmer_fits_intx <- outcomes %>%
 coef_tbl_mixed <- lmer_fits_intx %>% 
   imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
 
-# Term labels -- check unique(coef_tbl_mixed$term) and adjust names below
-# if any don't match (e.g. "treatmentmac" depends on which level of
-# `treatment` R picked as the reference)
+# Term labels
 term_labels <- c(
   "(Intercept)"                                 = "Intercept",
   "treatmentmac"                                = "Treatment (Mac vs. Control)",
@@ -1074,7 +1132,100 @@ slopes_tbl %>%
 
 ```
 
-## Influence diagnostics
+### Using baseline BMI for adiposity
+
+* Instead of %body fat, we reran the models using baseline BMI (centered at its median value of 30) as the adiposity measure. The interaction term between the within-subject **Roseburia_2** and baseline BMI was statistically significant for TC and LDL.
+  * Note that, in contrast to the mixed model with %body fat, the interaction was no longer significant for ApoB.
+
+```{r lmer_roseburia_with_BMI}
+
+# Run linear mixed model with baseline BMI and its interaction with Roseburia_2
+# Significant interaction terms in TC and LDL
+lmer_fits_intx_bmi <- outcomes %>% 
+  paste("~ treatment + group + I(roseburia_2_within / 100) * I(bmi_b - 30) + I(roseburia_2_between / 100) + (1 | id)") %>% 
+  lapply(lmer, data = df_long) %>% 
+  setNames(outcomes)
+
+# Tidy each mixed model's fixed effects, with 95% CIs
+coef_tbl_mixed_bmi <- lmer_fits_intx_bmi %>% 
+  imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
+
+# Term labels
+term_labels <- c(
+  "(Intercept)"                                 = "Intercept",
+  "treatmentmac"                                = "Treatment (Mac vs. Control)",
+  "group"                                       = "Sequence group",
+  "I(roseburia_2_within/100)"                   = "Roseburia_2 (within-subject, per 100 units)",
+  "I(bmi_b - 30)"                               = "Baseline BMI (centered)",
+  "I(roseburia_2_between/100)"                  = "Roseburia_2 (between-subject, per 100 units)",
+  "I(roseburia_2_within/100):I(bmi_b - 30)"     = "Roseburia_2 (within) \u00d7 BMI"
+)
+
+coef_long_mixed_bmi <- coef_tbl_mixed_bmi %>% 
+  mutate(
+    sig     = p.value < 0.05 & term != "(Intercept)",
+    term    = factor(term, levels = names(term_labels), labels = term_labels),
+    outcome = factor(outcome, levels = names(outcome_labels), labels = outcome_labels)
+  ) %>% 
+  transmute(
+    Outcome    = outcome,
+    Term       = term,
+    Beta       = if_else(sig, sprintf("**%.3f**", estimate), sprintf("%.3f", estimate)),
+    `Lower CI` = sprintf("%.3f", conf.low),
+    `Upper CI` = sprintf("%.3f", conf.high),
+    `P-value`  = if_else(sig, sprintf("**%s**", pval_4dp(p.value)), pval_4dp(p.value))
+  ) %>% 
+  mutate(Outcome = if_else(duplicated(Outcome), "", as.character(Outcome)))
+
+coef_long_mixed_bmi %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+```
+
+* Subsequently, the slope of the within-subject **Roseburia_2** term was estimated separately within each baseline BMI group (<30 and ≥30)
+  
+* A significant negative association with the within-subject **Roseburia_2** term was observed in the lower BMI group (<30) only for LDL
+
+```{r lmer_delta_roseburia_2_slopes_with_BMI}
+
+# Estimate slope for roseburia2, within
+slopes_mixed_bmi <- lmer_fits_intx_bmi %>% 
+  lapply(function(m) {
+    emtrends(m, ~ bmi_b, var = "roseburia_2_within",
+             at = list(bmi_b = bmi_means$mean_bmi),
+             data = df_long) %>% 
+      summary(infer = TRUE) %>% 
+      mutate(
+        roseburia_2_within.trend = roseburia_2_within.trend * 100,
+        SE       = SE * 100,
+        lower.CL = lower.CL * 100,
+        upper.CL = upper.CL * 100
+      )
+  })
+
+slopes_tbl_bmi <- slopes_mixed_bmi %>% 
+  imap_dfr(~ as_tibble(.x) %>% mutate(outcome = .y)) %>% 
+  mutate(
+    outcome   = factor(outcome, levels = names(outcome_labels), labels = outcome_labels),
+    bmi_group = if_else(bmi_b < 30, "<30", "\u226530"),
+    bmi_group = factor(bmi_group, levels = c("<30", "\u226530"))
+  ) %>% 
+  arrange(outcome, bmi_group) %>% 
+  transmute(
+    Outcome     = outcome,
+    `BMI group` = bmi_group,
+    Beta        = sprintf("%.3f", roseburia_2_within.trend),
+    `Lower CI`  = sprintf("%.3f", lower.CL),
+    `Upper CI`  = sprintf("%.3f", upper.CL),
+    `P-value`   = pval_4dp(p.value)
+  )
+
+slopes_tbl_bmi %>% 
+  kable(align = c("l", "l", "c", "c", "c", "c"))
+
+```
+
+## Influence diagnostics for linear mixed models
 
 * To evaluate whether the Roseburia_2 (within-subject) × %body fat interaction was disproportionately driven by any individual participant, we computed DFBETA for the interaction term specifically, using the linear mixed models described above.
   * DFBETA for the interaction term measures how much the estimated Roseburia_2 × %body fat coefficient shifts when each participant is excluded, one at a time. 
