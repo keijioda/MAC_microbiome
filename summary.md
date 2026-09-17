@@ -1034,3 +1034,58 @@ Zero in one phase
     correction
 
 ![](summary_files/figure-gfm/plot_from_MaAsLin3-1.png)<!-- -->
+
+## Mediation analysis
+
+- Given that the association between **Roseburia_2** and LDL cholesterol
+  was found to depend on %body fat, we conducted an exploratory
+  moderated mediation analysis to examine:
+  - whether the macadamia diet’s effect on LDL cholesterol is partly
+    explained by its effect on Roseburia_2, and
+  - whether the strength of that pathway varies with adiposity
+- The diagram below illustrates this model:
+  - **Path a** represents the effect of treatment (mac vs. control) on
+    the within-subject change in Roseburia_2
+  - **Path b** represents the association between that within-subject
+    change in Roseburia_2 and LDL
+  - **Path c′** is the direct effect of treatment on LDL cholesterol not
+    explained by Roseburia_2
+  - %body fat is included as a **moderator** of the path b (dotted
+    arrow), indicating the indirect effect of treatment on LDL
+    cholesterol through Roseburia_2 varies with a participant’s %body
+    fat.
+
+![](summary_files/figure-gfm/path_diagram-1.png)<!-- -->
+
+- To characterize how the indirect effect varies with adiposity, we
+  evaluated it at three representative values of %body fat: the sample
+  mean (43.0%) and one standard deviation below and above it (37.3% and
+  48.7%, respectively)
+- Confidence intervals of the indirect effect and index of moderated
+  mediation were constructed using a nonparametric bootstrap, in which
+  participants were resampled with replacement 2,000 times.
+  - Models were refit on each resampled dataset, and the indirect effect
+    at each adiposity level and the index of moderated mediation were
+    recomputed from each replicate
+  - 95% confidence intervals were then constructed from the resulting
+    bootstrap distributions using the BCa method
+- Among participants with lower adiposity, the estimated indirect effect
+  of the mac diet on LDL cholesterol via the Roseburia_2 pathway was a
+  reduction of about 13 mg/dL and this was statistically significant
+  (−13.06 \[−28.50, −3.73\] at 37.3% body fat)
+  - However, the indirect effect was not significant at average
+    adiposity (−5.78 \[−14.01, 0.12\]) or higher adiposity (1.50
+    \[−2.66, 5.64\])
+  - The index of moderated mediation was also significant (1.27 \[0.55,
+    2.52\])
+  - These results suggest that among leaner participants, the mac diet’s
+    LDL-lowering effect may run in part through its effect on
+    Roseburia_2, while this pathway appears to diminish as adiposity
+    increases
+
+| Quantity | Estimate | 95% BCa CI |
+|:---|:--:|:--:|
+| Indirect effect — low adiposity (37.3% body fat) | **-13.06** | \[-28.50, -3.73\] |
+| Indirect effect — mean adiposity (43.0% body fat) | -5.78 | \[-14.01, 0.12\] |
+| Indirect effect — high adiposity (48.7% body fat) | 1.50 | \[-2.66, 5.64\] |
+| Index of moderated mediation | **1.27** | \[0.55, 2.52\] |

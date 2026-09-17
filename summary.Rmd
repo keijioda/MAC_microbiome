@@ -773,7 +773,7 @@ coef_long %>%
 * The models were then refit, removing the interaction. The results were similar to those obtained from the linear models:
   * The within-subject Shannon index showed a significant positive association with total cholesterol, LDL, and ApoB
   * There was no significant association with HDL
-
+  
 ```{r lmer_shannon}
 # Linear mixed model for Shannon index ------------------------------------
 
@@ -1091,7 +1091,6 @@ coef_long_mixed %>%
   
 * A significant negative association with the within-subject **Roseburia_2** term was observed only in the lower adiposity group (<43% body fat), for TC, LDL, and ApoB 
   * No association was evident in the higher adiposity group (≥43%) for any of the three outcomes
-
 
 ```{r lmer_delta_roseburia_2_slopes}
 
@@ -1475,5 +1474,143 @@ ggplot(roseburia_plot_df, aes(x = coef, y = feature, color = is_target)) +
     subtitle = "Highlighted: Roseburia_2 (FDR-significant)"
   ) +
   theme_bw(base_size = 12)
+
+```
+
+## Mediation analysis
+
+* Given that the association between **Roseburia_2** and LDL cholesterol was found to depend on %body fat, we conducted an exploratory moderated mediation analysis to examine:
+  * whether the macadamia diet's effect on LDL cholesterol is partly explained by its effect on Roseburia_2, and
+  * whether the strength of that pathway varies with adiposity
+
+* The diagram below illustrates this model:
+  * **Path a** represents the effect of treatment (mac vs. control) on the within-subject change in Roseburia_2 
+  * **Path b** represents the association between that within-subject change in Roseburia_2 and LDL
+  * **Path c′** is the direct effect of treatment on LDL cholesterol not explained by Roseburia_2
+  * %body fat is included as a **moderator** of the path b (dotted arrow), indicating the indirect effect of treatment on LDL cholesterol through Roseburia_2 varies with a participant's %body fat.
+
+```{r path_diagram, fig.height = 4, fig.width = 8}
+
+# Nodes and edges
+nodes <- data.frame(
+  x = c(0, 2, 4, 5.7),
+  y = c(0, 2.3, 0, 1.1),
+  label = c("Mac treatment\n(vs. control)\n(X)",
+            "Roseburia_2\n(within-subject, mediator M)",
+            "LDL cholesterol\n(outcome Y)",
+            "%Body fat\n(moderator W)")
+)
+
+edges <- data.frame(
+  x     = c(0.40, 2.35, 0.60, 5.15),
+  y     = c(0.40, 1.90, 0.00, 1.05),
+  xend  = c(1.65, 3.80, 3.25, 3.35),
+  yend  = c(1.90, 0.40, 0.00, 1.05),
+  ltype = c("solid", "solid", "dashed", "dotted")
+)
+
+ggplot() +
+  geom_segment(data = edges, aes(x = x, y = y, xend = xend, yend = yend, linetype = ltype),
+               arrow = arrow(length = unit(0.3, "cm"), type = "closed"),
+               linewidth = 0.9, show.legend = FALSE) +
+  scale_linetype_identity() +
+  geom_label(data = nodes, aes(x = x, y = y, label = label),
+             size = 4, label.padding = unit(0.6, "lines"), fill = "grey95") +
+  annotate("text", x = 0.9, y = 1.45, label = "path a", fontface = "italic", size = 3.8) +
+  annotate("text", x = 3.3,  y = 1.45, label = "path b", fontface = "italic", size = 3.8) +
+  annotate("text", x = 2.0, y = -0.35, label = "path c' (direct)", fontface = "italic", size = 3.8) +
+  xlim(-1, 6.6) +
+  ylim(-1, 3) +
+  theme_void()
+
+```
+
+* To characterize how the indirect effect varies with adiposity, we evaluated it at three representative values of %body fat: the sample mean (43.0%) and one standard deviation below and above it (37.3% and 48.7%, respectively)
+* Confidence intervals of the indirect effect and index of moderated mediation were constructed using a nonparametric bootstrap, in which participants were resampled with replacement 2,000 times. 
+  * Models were refit on each resampled dataset, and the indirect effect at each adiposity level and the index of moderated mediation were recomputed from each replicate
+  * 95% confidence intervals were then constructed from the resulting bootstrap distributions using the BCa method
+
+* Among participants with lower adiposity, the estimated indirect effect of the mac diet on LDL cholesterol via the Roseburia_2 pathway was a reduction of about 13 mg/dL and this was statistically significant  (−13.06 [−28.50, −3.73] at 37.3% body fat)
+  * However, the indirect effect was not significant at average adiposity (−5.78 [−14.01, 0.12]) or higher adiposity (1.50 [−2.66, 5.64])
+  * The index of moderated mediation was also significant (1.27 [0.55, 2.52])
+  * These results suggest that among leaner participants, the mac diet's LDL-lowering effect may run in part through its effect on Roseburia_2, while this pathway appears to diminish as adiposity increases
+
+```{r mediation}
+
+# Mediation analysis ------------------------------------------------------
+
+# Using nonparametric bootstrap for BCa Confidence interval
+library(boot)
+
+ids_df <- data.frame(id = unique(df_long$id))
+
+# Function for bootstrap by IDs
+boot_stat <- function(ids_df, indices) {
+  boot_ids <- ids_df$id[indices]
+
+  boot_data <- map2_dfr(boot_ids, seq_along(boot_ids), function(orig_id, new_id) {
+    df_long %>% filter(id == orig_id) %>% mutate(id = new_id)
+  })
+
+  out <- tryCatch({
+    m_a <- lmer(I(roseburia_2/100) ~ treatment + group + (1 | id), data = boot_data)
+    m_b <- lmer(ldl ~ treatment + group +
+                  I(roseburia_2_within/100) * I(pct_fat_b - 43) +
+                  I(roseburia_2_between/100) +
+                  (1 | id), data = boot_data)
+
+    a_est  <- fixef(m_a)["treatmentmac"]
+    b_main <- fixef(m_b)["I(roseburia_2_within/100)"]
+    b_intx <- fixef(m_b)["I(roseburia_2_within/100):I(pct_fat_b - 43)"]
+    fat_sd <- sd(boot_data$pct_fat_b, na.rm = TRUE)
+
+    c(indirect_low  = a_est * (b_main - fat_sd * b_intx),
+      indirect_mean = a_est * b_main,
+      indirect_high = a_est * (b_main + fat_sd * b_intx),
+      index_mod_med = a_est * b_intx)
+  }, error = function(e) rep(NA_real_, 4), warning = function(w) rep(NA_real_, 4))
+
+  out
+}
+
+# Run bootstrap 2000 times
+set.seed(123)
+boot_out <- boot(ids_df, boot_stat, R = 2000)
+
+# Function to get BCa CIs
+get_bca <- function(boot_out, index) {
+  ci <- boot.ci(boot_out, type = "bca", index = index)$bca
+  c(estimate = unname(boot_out$t0[index]),
+    lower    = unname(ci[4]),
+    upper    = unname(ci[5]))
+}
+
+# Set up for summary table
+rows <- list(
+  low   = get_bca(boot_out, 1),
+  mean  = get_bca(boot_out, 2),
+  high  = get_bca(boot_out, 3),
+  index = get_bca(boot_out, 4)
+)
+
+fat_sd <- sd(df_long$pct_fat_b, na.rm = TRUE)
+
+mediation_tbl <- tibble(
+  Quantity = c(
+    sprintf("Indirect effect \u2014 low adiposity (%.1f%% body fat)",  43 - fat_sd),
+    "Indirect effect \u2014 mean adiposity (43.0% body fat)",
+    sprintf("Indirect effect \u2014 high adiposity (%.1f%% body fat)", 43 + fat_sd),
+    "Index of moderated mediation"
+  ),
+  Estimate    = sapply(rows, function(r) sprintf("%.2f", r["estimate"])),
+  `95% BCa CI` = sapply(rows, function(r) sprintf("[%.2f, %.2f]", r["lower"], r["upper"]))
+) %>%
+  mutate(
+    sig      = sapply(rows, function(r) r["lower"] > 0 | r["upper"] < 0),
+    Estimate = if_else(sig, paste0("**", Estimate, "**"), Estimate)
+  ) %>%
+  select(-sig)
+
+kable(mediation_tbl, align = c("l", "c", "c"))
 
 ```

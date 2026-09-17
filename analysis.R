@@ -856,6 +856,11 @@ lmer_fits <- outcomes %>%
 
 lmer_fits %>% lapply(summary)
 
+library(DHARMa)
+lmer_fits_intx %>% 
+  lapply(simulateResiduals) %>% 
+  lapply(plot)
+
 # Tidy each mixed model's fixed effects, with 95% CIs
 coef_tbl_mixed <- lmer_fits %>% 
   imap_dfr(~ tidy(.x, effects = "fixed", conf.int = TRUE) %>% mutate(outcome = .y))
@@ -1092,6 +1097,25 @@ lmer_fits_intx <- outcomes %>%
   setNames(outcomes)
 
 lmer_fits_intx %>% lapply(summary)
+
+library(DHARMa)
+lmer_fits_intx %>% 
+  lapply(simulateResiduals) %>% 
+  lapply(plot)
+
+df_long %>% 
+  ggplot(aes(x = roseburia_2_within)) +
+  geom_histogram()
+
+df_long %>% 
+  filter(roseburia_2_within == 0) %>% 
+  select(id, group_lab, visit, phase, roseburia_2, roseburia_2_within, roseburia_2_between) %>% 
+  print(n = Inf)
+
+df_long %>% 
+  ggplot(aes(x = roseburia_2_between)) +
+  geom_histogram()
+
 
 # Tidy each mixed model's fixed effects, with 95% CIs
 coef_tbl_mixed <- lmer_fits_intx %>% 
@@ -1516,31 +1540,32 @@ coef_tbl_mixed_sens6_ldl %>%
 
 # Mediation analysis ------------------------------------------------------
 
-# --- Path a: treatment -> Roseburia_2 (scaled to match model_b's /100 predictor) ---
+# Path a: treatment -> Roseburia_2
 model_a <- lmer(
   I(roseburia_2/100) ~ treatment + group + (1 | id),
   data = df_long
 )
 
-summary(model_a)
-
+# Extract coefficient and SE
 a_within <- tidy(model_a, effects = "fixed") %>% filter(term == "treatmentmac")
-a_est <- a_within$estimate; a_se <- a_within$std.error
+a_est <- a_within$estimate
+a_se  <- a_within$std.error
 
-# --- Path b / c': treatment + Roseburia_2 (x adiposity) -> lipid outcome ---
-# (unchanged -- your existing primary model)
+# Path b / c': treatment + Roseburia_2 (x adiposity) -> LDL 
 model_b <- lmer(
-  chol ~ treatment + group +
+  ldl ~ treatment + group +
     I(roseburia_2_within/100) * I(pct_fat_b - 43) +
     I(roseburia_2_between/100) +
     (1 | id),
   data = df_long
 )
 
+# Extract coefficient and SE
 b_terms   <- c("I(roseburia_2_within/100)", "I(roseburia_2_within/100):I(pct_fat_b - 43)")
 b_est_vec <- fixef(model_b)[b_terms]
 b_cov     <- as.matrix(vcov(model_b)[b_terms, b_terms])
 
+# Monte Carlo confidence interval 
 set.seed(123)
 n_sim <- 20000
 a_sim <- rnorm(n_sim, a_est, a_se)
@@ -1562,10 +1587,12 @@ index_est <- unname(a_est * b_est_vec[2])
 index_ci  <- quantile(index_sim, c(0.025, 0.975))
 index_est; index_ci
 
+# Nonparametric bootstrap
 library(boot)
 
 ids_df <- data.frame(id = unique(df_long$id))
 
+# Function for bootstrap by IDs
 boot_stat <- function(ids_df, indices) {
   boot_ids <- ids_df$id[indices]
   
@@ -1575,7 +1602,7 @@ boot_stat <- function(ids_df, indices) {
   
   out <- tryCatch({
     m_a <- lmer(I(roseburia_2/100) ~ treatment + group + (1 | id), data = boot_data)
-    m_b <- lmer(chol ~ treatment + group +
+    m_b <- lmer(ldl ~ treatment + group +
                   I(roseburia_2_within/100) * I(pct_fat_b - 43) +
                   I(roseburia_2_between/100) +
                   (1 | id), data = boot_data)
@@ -1594,29 +1621,36 @@ boot_stat <- function(ids_df, indices) {
   out
 }
 
+# Run bootstrap 2000 times
 set.seed(123)
 boot_out <- boot(ids_df, boot_stat, R = 2000)
 
+# Point estimates and BCa CIs
+# For conditional indirect effects and the index of moderated mediation
+# 
 boot_out
 boot.ci(boot_out, type = "bca", index = 1)  # indirect effect, low adiposity
 boot.ci(boot_out, type = "bca", index = 2)  # indirect effect, mean adiposity
 boot.ci(boot_out, type = "bca", index = 3)  # indirect effect, high adiposity
 boot.ci(boot_out, type = "bca", index = 4)  # index of moderated mediation
 
+# the index of moderated mediation formally tests whether the indirect effect changes with %body fat
+
+# Path diagram of the moderated mediation
 nodes <- data.frame(
-  x = c(0, 4, 2, 5.6),
-  y = c(2, 2, 0, 1.1),
+  x = c(0, 2, 4, 5.7),
+  y = c(0, 2.3, 0, 1.1),
   label = c("Mac treatment\n(vs. control)\n(X)",
-            "Roseburia_2\n(\u0394, mediator M)",
-            "Total cholesterol\n(\u0394, outcome Y)",
+            "Roseburia_2\n(within-subject, mediator M)",
+            "LDL cholesterol\n(outcome Y)",
             "%Body fat\n(moderator W)")
 )
 
 edges <- data.frame(
-  x    = c(0.6, 3.6, 0.5, 5.3),
-  y    = c(2, 1.7, 1.7, 1.0),
-  xend = c(3.4, 2.3, 1.7, 3.0),
-  yend = c(2, 0.3, 0.3, 1.6),
+  x     = c(0.40, 2.35, 0.60, 5.15),
+  y     = c(0.40, 1.90, 0.00, 1.05),
+  xend  = c(1.65, 3.80, 3.25, 3.35),
+  yend  = c(1.90, 0.40, 0.00, 1.05),
   ltype = c("solid", "solid", "dashed", "dotted")
 )
 
@@ -1627,18 +1661,14 @@ ggplot() +
   scale_linetype_identity() +
   geom_label(data = nodes, aes(x = x, y = y, label = label),
              size = 4, label.padding = unit(0.6, "lines"), fill = "grey95") +
-  annotate("text", x = 2, y = 2.25, label = "path a", fontface = "italic", size = 3.8) +
-  annotate("text", x = 3.3, y = 1.0, label = "path b", fontface = "italic", size = 3.8) +
-  annotate("text", x = 0.7, y = 1.0, label = "path c' (direct)", fontface = "italic", size = 3.8) +
-  annotate("text", x = 2, y = -0.7,
-           label = paste0(
-             "Indirect effect by %body fat:  low = -11.89 [-26.32, -2.47]*   ",
-             "mean = -4.45 [-12.69, 1.31]   high = 3.00 [-1.97, 7.96]\n",
-             "Index of moderated mediation = 1.30 [0.55, 2.68]*"),
-           size = 3.4) +
-  xlim(-0.8, 6.4) + ylim(-1.2, 2.6) +
+  annotate("text", x = 0.9, y = 1.45, label = "path a", fontface = "italic", size = 3.8) +
+  annotate("text", x = 3.3,  y = 1.45, label = "path b", fontface = "italic", size = 3.8) +
+  annotate("text", x = 2.0, y = -0.35, label = "path c' (direct)", fontface = "italic", size = 3.8) +
+  xlim(-1, 6.6) +
+  ylim(-1, 3) +
   theme_void()
 
+# Function to get BCa CIs
 get_bca <- function(boot_out, index) {
   ci <- boot.ci(boot_out, type = "bca", index = index)$bca
   c(estimate = unname(boot_out$t0[index]),
@@ -1671,6 +1701,7 @@ mediation_tbl <- tibble(
   ) %>%
   select(-sig)
 
-kable(mediation_tbl, align = c("l", "c", "c"),
-      caption = "Moderated mediation: indirect effect of mac treatment on total cholesterol via Roseburia_2, conditional on %body fat (2,000-replicate cluster bootstrap, BCa 95% CI)")
+kable(mediation_tbl, align = c("l", "c", "c"))
+
+# caption = "Moderated mediation: indirect effect of mac treatment on total cholesterol via Roseburia_2, conditional on %body fat (2,000-replicate cluster bootstrap, BCa 95% CI)")
 
