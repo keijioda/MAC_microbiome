@@ -1,0 +1,482 @@
+---
+title: "Power simulation and misc analyses for grant"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+
+# Packages used
+
+pacs <- c(
+  "jsonlite",
+  "tidyverse",
+  "readxl", 
+  "haven",
+  "irr",
+  "vegan",
+  "ggbeeswarm"
+)
+
+sapply(pacs, require, character.only = TRUE)
+
+```
+
+
+## Power simulation
+
+* To project statistical power for the primary analysis (the ETI × capacity score interaction) at the anticipated evaluable sample size, we conducted a Monte Carlo power simulation with 20,000 replicates per scenario
+  * Each replicate simulated a dataset under the assumed data-generating model:
+    * A reduced model (ETI, capacity score, and **6 covariates**) explaining R² = 0.20 of outcome variance, 
+    * The ETI x capacity interaction term targeting an incremental effect size of f² = 0.029 (approximately ΔR² = 0.023)
+    * Power was defined as the proportion of replicates in which the interaction term was statistically significant using HC3 robust standard errors
+
+* Power was estimated under three capacity-sampling modes
+  * Resampling directly from the observed empirical distribution (900 values)
+  * A winsorized version (1st/99th percentile trimmed) to check sensitivity to potential outliers
+  * A normal approximation matched to the empirical mean and SD
+  
+* The table below reflects the **uncorrelated** scenario, with ETI and capacity score treated as statistically independent
+  * ETI-SR was simulated as an independent standard normal ($ETI_i \sim \mathcal{N}(0,1)$) in this uncorrelated scenario, consistent with the assumption of no association between dietary/behavioral exposure and capacity score
+  * At the projected evaluable sample size of N = 328, power exceeded 80% across all three capacity-sampling modes
+  * At the accrual-shortfall contingencies (N=300 and N=270), power falls to 77.0–79.2% and 72.2–74.4% respectively
+
+```{r power_primary_uncorrelated}
+
+# Read json file containing simulation results
+power_results <- fromJSON("full_run_v3_output.json")
+
+power_results$uncorrelated_grid %>%
+  transmute(
+    N                        = n,
+    Mode                     = mode,
+    `Target f²`              = f2,
+    Power                    = sprintf("%.1f%%", power_hc3 * 100),
+    MCSE                     = sprintf("%.2f pp", mcse * 100),
+    # `Realized R² (reduced)`  = round(mean_realized_r2_reduced, 3),
+    # `Realized f²`            = round(mean_realized_f2, 3)
+  ) %>%
+  knitr::kable(align = c("c", "l", "c", "c", "c"))
+
+```
+
+* To evaluate robustness to a plausible **correlation structure **among predictors, we repeated the simulation using a Gaussian copula to induce dependence between ETI-SR, capacity score, and age, while preserving each variable's observed marginal distribution
+  * Both ETI-SR and capacity score were resampled from their observed empirical distributions via the copula's quantile transform: $X_i = \hat{Q}_X(u_i)$, where $u_i$ is the copula-transformed uniform variate and $\hat{Q}_X$ is the empirical quantile function for ETI-SR (n = 257) or capacity score (n = 900)
+  * The correlation between capacity score and age ($\rho = 0.043$) was fixed at its observed (anchored) value throughout
+  * The correlation between ETI-SR and capacity score was varied across $\rho \in \{-0.15, 0, 0.15\}$, and between capacity score and fiber intake across $\rho \in \{0, 0.20, 0.40\}$, yielding a 3×3 grid of correlation scenarios
+  * This grid was evaluated at all three sample sizes (N = 328, 300, 270), for 27 scenarios total, each with 20,000 replicates
+
+* Power was largely insensitive to the capacity–fiber correlation (≤1 pp shift across ρ = 0–0.40 at any fixed N and ETI–capacity correlation)
+  * Power was more sensitive to the direction of the ETI–capacity correlation: a negative correlation (ρ = −0.15) increased power by roughly 3 pp relative to independence, while a positive correlation (ρ = 0.15) decreased power by roughly 3–4 pp, at every sample size evaluated
+  * Across the full correlated grid, power at the primary sample size (N = 328) ranged from 77.3% to 84.1%. At the accrual-shortfall sample sizes, the lowest observed power was 67.9-68.3% (N = 270, positive ETI–capacity correlation)
+
+```{r power_correlated_N328}
+
+power_results$correlated_grid %>%
+  transmute(
+    N                    = n,
+    `ρ (ETI–capacity)`   = rho_eti_capacity,
+    `ρ (capacity–fiber)` = rho_capacity_fiber,
+    Power                = sprintf("%.1f%%", power_hc3 * 100),
+    MCSE                 = sprintf("%.2f pp", mcse * 100)
+  ) %>%
+  knitr::kable(align = "c")
+
+```
+
+```{r power_correlated_N300}
+
+```
+
+## MAC 16S secondary analyses
+
+### Intra-class correlation on Shannon Index
+
+* A two-way, absolute-agreement, single-measure intraclass correlation coefficient (ICC) was calculated to assess test-retest reliability of the Shannon diversity index, comparing values measured at baseline and at the end of the control phase among participants in the control-mac sequence group
+
+* The ICC was 0.954 (95% CI: 0.878–0.983; p < 0.0001), indicating excellent test-retest reliability
+  * This suggests that overall gut microbial community diversity, as summarized by the Shannon index, remained highly stable within individuals over the course of the control phase, supporting its use as a reproducible, individual-level measure of diversity in this cohort.
+
+```{r ICC_prep, include=FALSE}
+
+# Read previous MAC data --------------------------------------------------
+
+# Needed to extract treatment sequence
+mac0 <- read_spss("../data/MAC Endpoint data with baseline values 102121.sav") %>% 
+  janitor::clean_names()
+
+# Variables needed
+seq <- mac0 %>% 
+  select(id, group, phase, visit, treatment, gender, age_b, weight_b)
+
+# Distinct data with ID, Group, gender, age, weight
+# n = 35
+seq_distinct <- seq %>% 
+  select(id, group, gender, age_b, weight_b) %>% 
+  distinct()
+
+# Read cardiometabolic data -----------------------------------------------
+
+# Variable list
+cm_vars <- c(
+  "glucose",
+  "insulin",
+  "chol",
+  "trigs",
+  "hdl",
+  "ldl",
+  "vldl",
+  "apoa1",
+  "apob",
+  "crp",
+  "eselectin"
+)
+
+# 108 obs x 15 variables
+cm <- read_excel("../data/LLU_MAC Study_cardiometabolic outcomes.xlsx", sheet = "Data copy") %>% 
+  setNames(c("id", "phase", "visit", "clinic_date", cm_vars)) %>%  
+  mutate(clinic_date = as.Date(clinic_date))
+
+# Check distinct IDs: 38 participants
+n_distinct(cm$id)
+
+# Read anthropometric data ------------------------------------------------
+
+# Needed for adiposity variables
+# 35 subj x 23 vars
+adip <- read_excel("../data/MAC Anthropometric data.xlsx") %>% 
+  janitor::clean_names() %>% 
+  rename(id = study_id)
+
+# Make it to long format
+# Should have 35 * 3 = 105 obs
+adip_long <- adip %>% 
+  select(
+    id, 
+    visit_0_in_body_bmi, 
+    clinic_4_in_body_bmi,
+    clinic_9_wk_18_in_body_bmi,
+    visit_0_in_body_percent_body_fat,
+    clinic_4_in_body_percent_body_fat,
+    clinic_9_wk_18_in_body_percent_body_fat
+  ) %>%
+  rename(
+    bmi_0     = visit_0_in_body_bmi,
+    bmi_4     = clinic_4_in_body_bmi,
+    bmi_9     = clinic_9_wk_18_in_body_bmi,
+    pct_fat_0 = visit_0_in_body_percent_body_fat,
+    pct_fat_4 = clinic_4_in_body_percent_body_fat,
+    pct_fat_9 = clinic_9_wk_18_in_body_percent_body_fat
+  ) %>%
+  pivot_longer(
+    cols = -id,
+    names_to = c(".value", "visit"),
+    names_pattern = "(bmi|pct_fat)_(\\d+)"
+  ) %>%
+  mutate(visit = as.numeric(visit)) %>%
+  arrange(id, visit)
+
+# Read microbiome data ----------------------------------------------------
+
+# 4166 rows x 112 columns
+mb <- read_excel("../data/human_mac_study_abundance_data.xls")  
+
+# Select "Roseburia" and make it to long format
+# Results in 105 obs x 47 vars
+roseburia_long <- mb %>%
+  filter(str_starts(Species, "Roseburia")) %>%
+  select(Species, starts_with("MAC")) %>%
+  pivot_longer(
+    cols = -Species,
+    names_to = "sample",
+    values_to = "abundance"
+  ) %>%
+  mutate(
+    id    = as.integer(str_extract(sample, "(?<=MAC)\\d+")),
+    visit = as.integer(str_extract(sample, "(?<=v)\\d+"))
+  ) %>%
+  select(-sample) %>%
+  pivot_wider(
+    id_cols    = c(id, visit),
+    names_from = Species,
+    values_from = abundance,
+    values_fn  = sum 
+  ) %>%
+  arrange(id, visit) %>% 
+  janitor::clean_names()
+
+# Read Shannon index data -------------------------------------------------
+
+# 105 rows x 12 columns
+shannon <- read_csv("../data/metadata_with_alpha_div_indices.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    id    = parse_number(participant_id),
+    visit = parse_number(visit)
+  ) %>% 
+  select(id, visit, shannon)
+
+# Merge data --------------------------------------------------------------
+
+# Group = 1: mac-control
+# Group = 2: control-mac
+
+df <- adip_long %>% 
+  inner_join(cm,             by = c("id", "visit")) %>% 
+  left_join(seq_distinct,    by = c("id"))          %>% 
+  inner_join(roseburia_long, by = c("id", "visit")) %>% 
+  inner_join(shannon,        by = c("id", "visit")) %>% 
+  mutate(
+    group_lab = factor(group, labels = c("mac-control", "control-mac")),
+    phase     = ifelse(visit == 0, 0, phase),
+    treatment = case_when(
+      visit == 0                                            ~ "baseline",
+      (group == 1 & phase == 1) | (group == 2 & phase == 2) ~ "mac",
+      (group == 1 & phase == 2) | (group == 2 & phase == 1) ~ "control"
+    )
+  ) %>% 
+  select(
+    id, 
+    group, 
+    group_lab, 
+    clinic_date, 
+    visit, 
+    phase, 
+    treatment,
+    gender,
+    age_b,
+    weight_b,
+    bmi, 
+    pct_fat,
+    chol,
+    ldl, 
+    hdl,
+    apob,
+    shannon,
+    starts_with("roseburia")
+  )
+
+```
+
+
+```{r ICC}
+
+# ICC ---------------------------------------------------------------------
+
+# ICC(2, 1) for absolute agreement
+# Use only control-first group
+# Compare at baseline and at the end of control phase
+df_icc <- df %>% 
+  select(id, group, group_lab, visit, phase, shannon) %>% 
+  filter(group == 2, phase %in% c(0, 1))
+
+# Make it to wide format
+df_icc_wide <- df_icc %>% 
+  select(id, phase, shannon) %>% 
+  pivot_wider(names_from = phase, values_from = shannon, names_prefix = "phase_")
+
+# Two-way, single-measure ICC for absolute agreement
+icc_result <- df_icc_wide %>% 
+  select(-id) %>% 
+  icc(model = "twoway", type = "agreement")
+
+icc_table <- tibble(
+  Subjects   = icc_result$subjects,
+  Raters     = icc_result$raters,
+  `ICC(A,1)` = round(icc_result$value, 3),
+  `95% CI`   = sprintf("%.3f, %.3f", icc_result$lbound, icc_result$ubound),
+  `F`        = round(icc_result$Fvalue, 1),
+  df1        = icc_result$df1,
+  df2        = icc_result$df2,
+  `p-value`  = ifelse(icc_result$p.value < 0.001, "< 0.001",
+                       sprintf("%.3g", icc_result$p.value))
+)
+
+knitr::kable(
+  icc_table,
+  align   = "c"
+)
+
+```
+
+### Bray-Curtis similarity, within- vs between-person
+
+* To evaluate compositional reliability, we calculated Bray-Curtis similarity between all pairs of stool samples collected from participants in the control-first (control-mac) sequence group, based on relative abundance across 4,166 taxa
+  * Similarity values range from 0 (no shared taxa) to 1 (identical composition), with higher values indicating greater compositional similarity between two samples.
+
+* For each of the 17 participants in the control-first group, we compared the baseline sample to the end-of-control-phase sample, yielding 17 within-person similarity values
+
+* Between-person similarity was calculated from all pairwise combinations of the 17 baseline samples across different participants, yielding $\binom{17}{2} = 136$ between-person similarity values. Summary statistics for both groups are shown below
+
+```{r bc_similarity_prep}
+
+# Read previous MAC data --------------------------------------------------
+
+# Needed to extract treatment sequence
+mac0 <- read_spss("../data/MAC Endpoint data with baseline values 102121.sav") %>% 
+  janitor::clean_names()
+
+# Variables needed
+seq <- mac0 %>% 
+  select(id, group, phase, visit, treatment)
+
+# Distinct data with ID, Group
+# n = 35
+seq_distinct <- seq %>% 
+  select(id, group) %>% 
+  distinct()
+
+# Use only control-first group
+# Need to compare at baseline and at the end of control phase
+ctrl_first_ids <- seq_distinct %>% filter(group == 2) %>% pull(id)
+need_columns <- sprintf("%02.0f", ctrl_first_ids) %>% paste0("MAC", .)
+
+# Read microbiome data ----------------------------------------------------
+
+# 4166 rows x 112 columns
+mb <- read_excel("../data/human_mac_study_abundance_data.xls")  
+
+# Create abundance matrix
+# Need rows = samples, columns = taxa
+abundance_matrix <- mb %>% 
+  select(starts_with(need_columns)) %>% 
+  select(ends_with(c("v0", "v4"))) %>% 
+  as.matrix() %>% 
+  t()
+
+```
+
+```{r bc_similarity}
+
+# Bray-Curtis dissimilarity / similarity -----------------------------------
+
+# Dissimilarity score
+bc_dissim <- vegdist(abundance_matrix, method = "bray") %>% 
+  as.matrix()
+
+# Similarity score
+bc_sim <- 1 - bc_dissim
+
+# Within-person BC similarity
+sample_meta <- tibble(sample_id = rownames(bc_sim)) %>% 
+  extract(sample_id, into = c("id_chr", "visit"),
+          regex = "^(MAC\\d+)_p\\d+(v\\d+)$", remove = FALSE)
+
+within_person_bc <- bc_sim %>% 
+  as_tibble(rownames = "sample_1") %>% 
+  pivot_longer(-sample_1, names_to = "sample_2", values_to = "bc_sim") %>% 
+  left_join(sample_meta, by = c("sample_1" = "sample_id")) %>% 
+  rename(id_1 = id_chr, visit_1 = visit) %>% 
+  left_join(sample_meta, by = c("sample_2" = "sample_id")) %>% 
+  rename(id_2 = id_chr, visit_2 = visit) %>% 
+  filter(id_1 == id_2, visit_1 == "v0", visit_2 == "v4") %>% 
+  select(id = id_1, bc_sim)
+
+# Between-person BC similarity
+between_person_bc <- bc_sim %>% 
+  as_tibble(rownames = "sample_1") %>% 
+  pivot_longer(-sample_1, names_to = "sample_2", values_to = "bc_sim") %>% 
+  left_join(sample_meta, by = c("sample_1" = "sample_id")) %>% 
+  rename(id_1 = id_chr, visit_1 = visit) %>% 
+  left_join(sample_meta, by = c("sample_2" = "sample_id")) %>% 
+  rename(id_2 = id_chr, visit_2 = visit) %>% 
+  filter(visit_1 == "v0", visit_2 == "v0", id_1 < id_2) %>% 
+  select(id_1, id_2, bc_sim)
+
+# Summary statictics
+bc_summary <- bind_rows(
+  within_person_bc  %>% mutate(group = "Within-person"),
+  between_person_bc %>% mutate(group = "Between-person")
+) %>%
+  group_by(group) %>%
+  summarise(
+    n      = n(),
+    mean   = mean(bc_sim),
+    sd     = sd(bc_sim),
+    median = median(bc_sim),
+    q1     = quantile(bc_sim, 0.25),
+    q3     = quantile(bc_sim, 0.75)
+  )
+
+bc_summary %>%
+  mutate(
+    group  = group,
+    n      = n,
+    mean   = round(mean, 3),
+    sd     = round(sd, 3),
+    median = round(median, 3),
+    q1     = round(q1, 3),
+    q3     = round(q3, 3)
+  ) %>%
+  rename(
+    Group    = group,
+    N        = n,
+    Mean     = mean,
+    SD       = sd,
+    Median   = median,
+    Q1       = q1,
+    Q3       = q3
+  ) %>%
+  knitr::kable(
+    align   = "lcccccc"
+  )
+
+```
+
+* Within-person similarity (mean = 0.655, median = 0.679) was substantially higher than between-person similarity (mean = 0.169, median = 0.157)
+  * indicating that an individual's gut microbial composition remained far more similar to itself over time than to another participant's composition at a single timepoint
+
+* This difference was confirmed formally using permutation MANOVA (PERMANOVA with 9999 permutations), testing whether subject ID explained variation in pairwise Bray-Curtis dissimilarity
+  * Subject effect accounted for 88.4% of the total variance ($R^2 = 0.884$, $p < 0.0001$), providing strong statistical support for within-person compositional stability substantially exceeding between-person variability in this cohort
+
+```{r bc_similarity_plot, fig.height = 4, fig.width = 5}
+
+# PERMANOVA ---------------------------------------------------------------
+
+# PERMANOVA based on dissimilarity
+# Covariate table aligned to the rows of bc_dissim, in the same order
+sample_info <- sample_meta %>% 
+  filter(sample_id %in% rownames(bc_dissim)) %>% 
+  arrange(match(sample_id, rownames(bc_dissim)))
+
+# Does composition cluster by subject?
+set.seed(123)
+adonis_result <- adonis2(
+  as.dist(bc_dissim) ~ id_chr,
+  data = sample_info,
+  permutations = 9999
+)
+
+# Boxplot with beeswarm ---------------------------------------------------
+
+r2_val <- adonis_result$R2[1]
+f_val  <- adonis_result$F[1]
+p_val  <- adonis_result$`Pr(>F)`[1]
+
+p_label <- if (p_val <= 0.0001) "p < 0.0001" else paste0("p = ", format(p_val, digits = 2))
+perm_label <- sprintf("PERMANOVA: R² = %.3f, F = %.2f, %s", r2_val, f_val, p_label)
+
+# Box plot
+bind_rows(
+  within_person_bc  %>% mutate(comparison = "within-person")  %>% select(comparison, bc_sim),
+  between_person_bc %>% mutate(comparison = "between-person") %>% select(comparison, bc_sim)
+) %>% 
+  ggplot(aes(x = comparison, y = bc_sim)) +
+  geom_boxplot() +
+  geom_beeswarm(aes(color = comparison)) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(
+    x = NULL, 
+    y = "Bray-Curtis Similarity",     
+    title = "Bray-Curtis Similarity: Within- vs. Between-Person",
+    subtitle = perm_label
+  ) +
+  theme_bw() +
+  theme(legend.position = "none")
+
+```
+
+### Roseburia zero-inflation
+
+* There are 11 of 35 participants (31.4%) with Roseburia_2 = 0 in both phases, and 6 more participants (17.1%) with Roseburia_2 = 0 in only one of the two phases -- bringing the total to 17 of 35 participants (49%) with at least one zero value
