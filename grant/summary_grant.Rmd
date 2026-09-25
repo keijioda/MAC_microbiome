@@ -78,6 +78,7 @@ power_results$correlated_grid %>%
     N                    = n,
     `ρ (ETI–capacity)`   = rho_eti_capacity,
     `ρ (capacity–fiber)` = rho_capacity_fiber,
+    `Target f²`          = f2,
     Power                = sprintf("%.1f%%", power_hc3 * 100),
     MCSE                 = sprintf("%.2f pp", mcse * 100)
   ) %>%
