@@ -24,10 +24,9 @@ Power simulation and misc analyses for grant
   - A normal approximation matched to the empirical mean and SD
 - The table below reflects the **uncorrelated** scenario, with ETI and
   capacity score treated as statistically independent
-  - ETI-SR was simulated as an independent standard normal
-    ($ETI_i \sim \mathcal{N}(0,1)$) in this uncorrelated scenario,
-    consistent with the assumption of no association between
-    dietary/behavioral exposure and capacity score
+  - ETI-SR was simulated as an independent standard normal in this
+    uncorrelated scenario, consistent with the assumption of no
+    association between dietary/behavioral exposure and capacity score
   - At the projected evaluable sample size of N = 328, power exceeded
     80% across all three capacity-sampling modes
   - At the accrual-shortfall contingencies (N=300 and N=270), power
@@ -57,9 +56,9 @@ Power simulation and misc analyses for grant
   - The correlation between capacity score and age ($\rho = 0.043$) was
     fixed at its observed (anchored) value throughout
   - The correlation between ETI-SR and capacity score was varied across
-    $\rho \in \{-0.15, 0, 0.15\}$, and between capacity score and fiber
-    intake across $\rho \in \{0, 0.20, 0.40\}$, yielding a 3×3 grid of
-    correlation scenarios
+    $\rho \in \lbrace-0.15, 0, 0.15\rbrace$, and between capacity score
+    and fiber intake across $\rho \in \lbrace0, 0.20, 0.40\rbrace$,
+    yielding a 3×3 grid of correlation scenarios
   - This grid was evaluated at all three sample sizes (N = 328, 300,
     270), for 27 scenarios total, each with 20,000 replicates
 - Power was largely insensitive to the capacity–fiber correlation (≤1 pp
